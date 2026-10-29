@@ -1,4 +1,5 @@
-# Builds the offline installer (dist/homelib-usb.zip) and attaches it to a
+# Builds the offline installer (dist/homelib-usb.zip) and the small update
+# package (dist/homelib-update.zip) and attaches both to a
 # GitHub Release named after the app version in backend/homelib/__init__.py.
 # Run it from the Actions tab ("Build release" → Run workflow) or push a v* tag.
 name: Build release
@@ -26,7 +27,7 @@ jobs:
           python -m pip install -q -r backend/requirements-dev.txt
           cd backend && python -m pytest -q -p no:warnings
 
-      - name: Build homelib-usb.zip
+      - name: Build homelib-usb.zip and homelib-update.zip
         run: bash scripts/build_usb.sh
 
       - name: Publish release
@@ -35,14 +36,19 @@ jobs:
         run: |
           VERSION=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' backend/homelib/__init__.py)
           SHA=$(sha256sum dist/homelib-usb.zip | cut -d' ' -f1)
-          NOTES="Offline installer for Ubuntu Server 22.04/24.04/26.04 (x86_64).
+          SHA_UP=$(sha256sum dist/homelib-update.zip | cut -d' ' -f1)
+          NOTES="homelib-usb.zip: offline installer for Ubuntu Server 22.04/24.04/26.04 (x86_64), with every Python package.
           Copy it to the server, then: python3 -m zipfile -e homelib-usb.zip . && cd homelib-usb && sudo bash install.sh
           See README.md and docs/SETUP_CHECKLIST.md.
 
-          SHA-256: $SHA"
+          homelib-update.zip: small update for an existing install (app only; reuses the installed Python packages if they're the versions it needs, otherwise use homelib-usb.zip).
+          What's new and how to update: updates/README.md and updates/$VERSION.md.
+
+          SHA-256 homelib-usb.zip: $SHA
+          SHA-256 homelib-update.zip: $SHA_UP"
           if gh release view "v$VERSION" >/dev/null 2>&1; then
-            gh release upload "v$VERSION" dist/homelib-usb.zip --clobber
+            gh release upload "v$VERSION" dist/homelib-usb.zip dist/homelib-update.zip --clobber
           else
-            gh release create "v$VERSION" dist/homelib-usb.zip --target "$GITHUB_SHA" \
+            gh release create "v$VERSION" dist/homelib-usb.zip dist/homelib-update.zip --target "$GITHUB_SHA" \
               --title "Home Video Library $VERSION" --notes "$NOTES"
           fi
