@@ -127,7 +127,7 @@ Now, on the server (console or SSH):
 
 First download the package (on the laptop):
 
-- [ ] Get `homelib-usb.zip` (about **100 MB**) into **Downloads**: download it from this repository's **Releases** page if one is published, or build it yourself on any Linux/macOS machine with `bash scripts/build_usb.sh` (see the README; the zip appears in `dist/`). **Don't unzip it.**
+- [ ] Open <https://github.com/Justin314159/Personal-video-server-public/releases/latest/download/homelib-usb.zip>. It saves `homelib-usb.zip` (about **100 MB**) to **Downloads**. (It's the newest release from the repository's **Releases** page. You can also build it yourself on Linux/macOS with `bash scripts/build_usb.sh`.) **Don't unzip it.**
 
 Then copy it to the server with **one** of these options:
 

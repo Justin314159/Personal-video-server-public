@@ -55,16 +55,16 @@ The full beginner-friendly walkthrough is in
 USB stick. In short:
 
 1. **Install Ubuntu Server** on the box ([`docs/UBUNTU_INSTALL.md`](docs/UBUNTU_INSTALL.md); Wi-Fi only: [`docs/WIFI.md`](docs/WIFI.md)).
-2. **Build the offline package** on any Linux or macOS machine with internet access:
+2. **Download the offline package**, [`homelib-usb.zip`](https://github.com/Justin314159/Personal-video-server-public/releases/latest/download/homelib-usb.zip) (~100 MB),
+   from the latest [Release](../../releases/latest). To build it yourself instead,
+   on any Linux or macOS machine with internet access:
    ```bash
-   git clone https://github.com/YOUR_GITHUB_USER/YOUR_REPO.git
-   cd YOUR_REPO
-   bash scripts/build_usb.sh          # creates dist/homelib-usb.zip (~100 MB)
+   bash scripts/build_usb.sh          # creates dist/homelib-usb.zip
    ```
-   If the repository publishes a Release, you can download `homelib-usb.zip` from there instead.
+   Releases are built by the "Build release" GitHub Actions workflow (`.github/workflows/release.yml`).
 3. **Install on the server**:
    ```bash
-   scp dist/homelib-usb.zip YOUR_USERNAME@YOUR_SERVER_LAN_IP:~
+   scp homelib-usb.zip YOUR_USERNAME@YOUR_SERVER_LAN_IP:~
    ssh YOUR_USERNAME@YOUR_SERVER_LAN_IP
    python3 -m zipfile -e homelib-usb.zip . && cd homelib-usb
    sudo bash install.sh
