@@ -270,4 +270,5 @@ settings and history are kept).
 - [ ] It should print `All … files verified.`, `Server is up at http://127.0.0.1:8787` and `Updated to 1.3.0` (or newer).
 - [ ] Health check: `sudo /opt/homelib/selfcheck.sh`
 - [ ] On each iPhone, fully close the Videos app (swipe it away in the app switcher) and open it again to load the new version. If it still looks old, open the address once in Safari and pull down to reload.
+- [ ] New in 1.4.0: what you download is now **just yours** (the other profile doesn't see it) unless you pick **Share with both of us**. For you has a **reload** button (top right), transcripts have a **Copy** button, and you can add a **profile photo** in Settings (tap your picture).
 - [ ] New in 1.3.0: the **Queue** tab is now **Library** (Videos / My queue / Shared / Playlists). Videos downloaded before the update have no captions yet: open one → **Captions** → **Get captions from YouTube**.

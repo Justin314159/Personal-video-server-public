@@ -10,19 +10,21 @@ const QUALITY = [
   ['best', 'Best quality', 'Up to 4K. Some files are VP9/AV1 and may need VLC on the phone.'],
 ];
 
-export async function downloadSheet(video, { onDone } = {}) {
+// shared: opened from "Both of us", so it starts on "Share with both of us".
+// Everywhere else a download is private to whoever downloads it.
+export async function downloadSheet(video, { onDone, shared = false } = {}) {
   if (!state.settings) state.settings = await api.settings();
   if (video.local_status === 'ready' || video.status === 'ready') {
     navigate(`#/player/${encodeURIComponent(video.id)}`);
     return;
   }
   let quality = video.is_short ? 'compat' : state.settings.default_quality;
-  let dest = 'personal';
+  let dest = shared ? 'shared' : 'personal';
   const other = state.profiles.find((p) => p.id !== state.profile.id);
   const DEST = [
-    ['personal', 'My queue', `Only ${state.profile.name} needs to watch it before it's auto-deleted.`],
-    ['shared', 'Shared queue', `Shows up for both of you. Deleted after you've ${other ? 'both' : 'all'} watched.`],
-    ['none', 'Just download', 'Goes to the library without queueing.'],
+    ['personal', 'My queue', `Only ${state.profile.name} sees it. Deleted once you've watched it.`],
+    ['none', 'Just download', `Only ${state.profile.name} sees it, in the library, without queueing.`],
+    ['shared', other ? 'Share with both of us' : 'Shared queue', `Shows up for ${other ? `${other.name} too` : 'everyone'}, in the Shared queue. Deleted after you've ${other ? 'both' : 'all'} watched.`],
   ];
   sheet((close) => {
     const qWrap = h('div.stack');
@@ -43,7 +45,7 @@ export async function downloadSheet(video, { onDone } = {}) {
         go.disabled = true;
         try {
           await api.download(video, quality, dest);
-          toast(dest === 'none' ? 'Downloading' : `Downloading → ${dest === 'shared' ? 'Shared' : 'My'} queue`);
+          toast(dest === 'none' ? 'Downloading (just for you)' : `Downloading → ${dest === 'shared' ? 'Shared' : 'My'} queue`);
           close();
           onDone && onDone();
         } catch (e) {
@@ -103,7 +105,7 @@ export function candidateMenu(item, mode, onChange) {
     const topic = (item.keywords || [])[0];
     return h('div',
       h('h2.clamp2', { style: { marginBottom: '8px' } }, item.title),
-      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange })),
+      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange, shared: mode === 'both' })),
       act('Why am I seeing this?', 'info', () => whySheet(item, mode)),
       act('Not interested', 'dislike', async () => { await api.rateCandidate(item, -1); toast('Got it. Less like this.'); }),
       topic ? act(`More about “${topic}”`, 'bolt', async () => { await api.boost('kw', topic, 2); toast(`Boosted “${topic}”`); }) : null,
@@ -119,8 +121,8 @@ export async function newPlaylistSheet() {
   const other = state.profiles.find((p) => p.id !== state.profile.id);
   const opts = h('div.stack');
   const paint = () => put(opts, ...[
-    ['personal', 'Just for me', `Only ${state.profile.name} sees it.`],
-    ['shared', 'Shared', `${other ? `${other.name} sees it too` : 'Everyone sees it'} and can add videos.`],
+    ['personal', 'Just for me', `Only ${state.profile.name} sees it. You can share it later.`],
+    ['shared', other ? 'Share with both of us' : 'Shared', `${other ? `${other.name} sees it too` : 'Everyone sees it'} and can add videos. Its videos become shared too.`],
   ].map(([v, t, d]) => h('button.option', { type: 'button', class: scope === v ? 'on' : '', 'aria-pressed': String(scope === v), onclick: () => { scope = v; paint(); } },
     h('span.radio'), h('span', h('div.t', t), h('div.d', d)))));
   paint();
@@ -243,6 +245,17 @@ export function deleteSheet(video, { onDeleted } = {}) {
 
 // ---- per-video menu (library, playlists, continue watching) ----------------------------
 
+// "Share with both of us" for a private video (null when it's already shared).
+function shareAction(video, act, onChange) {
+  const other = state.profiles.find((p) => p.id !== state.profile.id);
+  if (!other || video.shared !== false || !['ready', 'queued', 'downloading'].includes(video.status)) return null;
+  return act('Share with both of us', 'users', async () => {
+    await api.shareVideo(video.id);
+    toast(`Shared with ${other.name}: it’s in the Shared queue`, 2600, 'check');
+    onChange && onChange();
+  });
+}
+
 export function videoMenu(video, { onChange, extra = [] } = {}) {
   const me = state.profile.id;
   const ws = (video.watch || {})[me];
@@ -260,6 +273,7 @@ export function videoMenu(video, { onChange, extra = [] } = {}) {
         onChange && onChange();
       }) : null,
       act('Save to playlist…', 'listadd', () => addToPlaylistSheet(video)),
+      shareAction(video, act, onChange),
       ...extra.map(([label, ic, fn, cls]) => act(label, ic, fn, cls || '')),
       video.status === 'ready' ? act(video.keep ? 'Allow auto-delete' : 'Keep (never auto-delete)', 'pin', async () => {
         await api.keep(video.id, !video.keep);

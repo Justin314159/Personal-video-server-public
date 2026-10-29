@@ -33,11 +33,17 @@ function paint(body, pl, reload) {
   const ready = pl.items.filter((v) => v.status === 'ready');
   const firstUnwatched = ready.find((v) => !watchInfo(v, me).watched) || ready[0];
   const owner = pl.scope === 'shared' ? 'Shared with both of you' : `Just ${(profileById(pl.profile_id) || state.profile).name}`;
+  const other = state.profiles.find((p) => p.id !== me);
   const header = h('div.pl-head',
     h('div.muted.small', `${owner} · ${pl.count} video${pl.count === 1 ? '' : 's'}${pl.duration ? ` · ${fmtDuration(pl.duration)}` : ''}`),
     h('div.row.wrap', { style: { marginTop: '12px', gap: '8px' } },
       firstUnwatched ? h('a.btn.primary', { href: `#/player/${encodeURIComponent(firstUnwatched.id)}/list/${pl.id}` }, icon('play'), firstUnwatched === ready[0] ? 'Play all' : 'Continue') : null,
       h('button.btn', { onclick: () => addVideosSheet(pl, reload) }, icon('plus'), 'Add'),
+      pl.scope === 'personal' && other ? h('button.btn', { onclick: async () => {
+        if (await confirmSheet('Share with both of us?', `${other.name} will see “${pl.name}” and its videos, and can add to it. Shared videos are deleted once you’ve both watched them (videos in a playlist are kept).`, 'Share', false)) {
+          try { await api.sharePlaylist(pl.id); toast(`Shared with ${other.name}`, 2200, 'check'); reload(); } catch (e) { toast(e.message); }
+        }
+      } }, icon('users'), 'Share with both of us') : null,
       h('button.icon-btn.filled', { 'aria-label': 'Rename playlist', onclick: async () => {
         const name = await promptSheet('Rename playlist', { value: pl.name });
         if (name && name !== pl.name) { try { await api.renamePlaylist(pl.id, name); toast('Renamed', 2000, 'check'); reload(); } catch (e) { toast(e.message); } }

@@ -45,8 +45,14 @@ def ensure_profiles(names: list[str]) -> None:
                  (i, name, DEFAULT_ACCENTS[i - 1], now()))
 
 
+def _profile_view(p: dict) -> dict:
+    at = p.pop("avatar_at", None)
+    p["avatar"] = f"/api/profiles/{p['id']}/avatar?v={int(at)}" if at else None
+    return p
+
+
 def profiles() -> list[dict]:
-    return db.q("SELECT id, name, accent FROM profiles ORDER BY id")
+    return [_profile_view(p) for p in db.q("SELECT id, name, accent, avatar_at FROM profiles ORDER BY id")]
 
 
 def profile_ids() -> list[int]:
@@ -54,10 +60,10 @@ def profile_ids() -> list[int]:
 
 
 def get_profile(pid: int) -> dict:
-    p = db.q1("SELECT id, name, accent FROM profiles WHERE id=?", (pid,))
+    p = db.q1("SELECT id, name, accent, avatar_at FROM profiles WHERE id=?", (pid,))
     if not p:
         raise NotFound(f"profile {pid}")
-    return p
+    return _profile_view(p)
 
 
 def rename_profile(pid: int, name: str) -> dict:
@@ -66,6 +72,46 @@ def rename_profile(pid: int, name: str) -> dict:
         raise ValueError("name required")
     get_profile(pid)
     db.x("UPDATE profiles SET name=? WHERE id=?", (name, pid))
+    return get_profile(pid)
+
+
+AVATAR_MAX_BYTES = 2 * 1024 * 1024
+AVATAR_TYPES = {b"\xff\xd8\xff": "jpg", b"\x89PNG": "png", b"RIFF": "webp"}
+
+
+def avatar_file(avatars_dir: Path, pid: int) -> Path | None:
+    for ext in ("jpg", "png", "webp"):
+        f = avatars_dir / f"{pid}.{ext}"
+        if f.is_file():
+            return f
+    return None
+
+
+def set_avatar(pid: int, data: bytes, avatars_dir: Path) -> dict:
+    """Store a profile photo. The app already shrinks it to a small square on
+    the phone, so the server only checks it is a reasonably sized image."""
+    get_profile(pid)
+    if len(data) > AVATAR_MAX_BYTES:
+        raise ValueError("That photo is too big. Try a smaller one.")
+    ext = next((e for magic, e in AVATAR_TYPES.items() if data.startswith(magic)), None)
+    if not ext or (ext == "webp" and data[8:12] != b"WEBP"):
+        raise ValueError("Use a JPEG, PNG or WebP photo.")
+    avatars_dir.mkdir(parents=True, exist_ok=True)
+    clear_avatar_files(avatars_dir, pid)
+    (avatars_dir / f"{pid}.{ext}").write_bytes(data)
+    db.x("UPDATE profiles SET avatar_at=? WHERE id=?", (now(), pid))
+    return get_profile(pid)
+
+
+def clear_avatar_files(avatars_dir: Path, pid: int) -> None:
+    for ext in ("jpg", "png", "webp"):
+        (avatars_dir / f"{pid}.{ext}").unlink(missing_ok=True)
+
+
+def remove_avatar(pid: int, avatars_dir: Path) -> dict:
+    get_profile(pid)
+    clear_avatar_files(avatars_dir, pid)
+    db.x("UPDATE profiles SET avatar_at=NULL WHERE id=?", (pid,))
     return get_profile(pid)
 
 
@@ -139,7 +185,8 @@ def set_audience(vid: str, audience: str) -> None:
 
 
 def widen_audience(vid: str, profile_id: int | None, scope: str) -> None:
-    """Record who needs to watch a video before auto-delete may remove it.
+    """Record who a video is for: who sees it in their library and who needs
+    to watch it before auto-delete may remove it.
 
     Audience only ever widens: 'p:<id>' -> 'all'. New downloads set it
     explicitly (see downloader.enqueue).
@@ -162,10 +209,12 @@ def _has_shared(vid: str) -> bool:
 
 
 def relevant_profiles(vid: str, all_profiles: list[int] | None = None) -> list[int]:
-    """Profiles that must watch a video before it is auto-deleted.
+    """Profiles a video is for: they see it, and they must watch it before it
+    is auto-deleted.
 
-    Shared queue (or no queue at all) means everyone; a personal-only video
-    only waits for the people whose personal queue it was in.
+    Audience 'all' (shared queue, shared playlist, "Share with both of us")
+    means everyone; a private video ('p:<id>') is only its owner's, plus
+    anyone else who queued it themselves.
     """
     allp = all_profiles or profile_ids()
     v = db.q1("SELECT audience FROM videos WHERE id=?", (vid,))
@@ -176,6 +225,25 @@ def relevant_profiles(vid: str, all_profiles: list[int] | None = None) -> list[i
     if v["audience"].startswith("p:"):
         owners.add(int(v["audience"][2:]))
     return sorted(p for p in owners if p in allp) or allp
+
+
+def visible_to(vid: str, profile_id: int) -> bool:
+    """Private downloads only show up for the profiles they are for."""
+    return profile_id in relevant_profiles(vid)
+
+
+def share_video(vid: str, profile_id: int) -> dict:
+    """"Share with both of us": everyone sees it, it goes in the Shared queue,
+    and auto-delete now waits for everyone."""
+    v = get_video(vid)
+    if v["status"] not in ("ready", "queued", "downloading"):
+        raise ValueError("Only videos on the server can be shared.")
+    if not visible_to(vid, profile_id):
+        raise NotFound(f"video {vid}")
+    if v.get("media") == "video":
+        queue_add(vid, "shared", profile_id)
+    set_audience(vid, "all")
+    return decorate_video(get_video(vid))
 
 
 def delete_video(vid: str, reason: str, by_profile: int | None, library_dir: Path,
@@ -559,6 +627,8 @@ def delete_playlist(plid: int, profile_id: int) -> None:
 def playlist_add(plid: int, vid: str, profile_id: int) -> dict:
     pl = _visible(db.q1("SELECT * FROM playlists WHERE id=?", (plid,)), profile_id)
     v = get_video(vid)
+    if not visible_to(vid, profile_id):
+        raise NotFound(f"video {vid}")
     if v.get("media") != "video" or v["status"] not in ("ready", "queued", "downloading"):
         raise ValueError("Only videos in the library can go in a playlist.")
     with db.tx():
@@ -570,6 +640,17 @@ def playlist_add(plid: int, vid: str, profile_id: int) -> dict:
         db.x("UPDATE playlists SET updated_at=? WHERE id=?", (now(), plid))
     # A shared playlist makes the video everyone's (for the delete-after-watching vote).
     widen_audience(vid, profile_id, pl["scope"])
+    return get_playlist(plid, profile_id)
+
+
+def share_playlist(plid: int, profile_id: int) -> dict:
+    """Turn a personal playlist into a shared one: both of you see it, and its
+    videos become shared videos."""
+    pl = _visible(db.q1("SELECT * FROM playlists WHERE id=?", (plid,)), profile_id)
+    if pl["scope"] == "personal":
+        db.x("UPDATE playlists SET scope='shared', profile_id=NULL, updated_at=? WHERE id=?", (now(), plid))
+        for r in db.q("SELECT video_id FROM playlist_items WHERE playlist_id=?", (plid,)):
+            widen_audience(r["video_id"], profile_id, "shared")
     return get_playlist(plid, profile_id)
 
 
@@ -621,7 +702,10 @@ def decorate_video(v: dict) -> dict:
               "ORDER BY id DESC LIMIT 1", (vid,))
     v["download"] = d
     v["needs_vlc"] = needs_vlc(v.get("vcodec"))
-    v["relevant"] = relevant_profiles(vid) if v.get("status") == "ready" else []
+    allp = profile_ids()
+    v["for"] = relevant_profiles(vid, allp)
+    v["shared"] = set(allp) <= set(v["for"])
+    v["relevant"] = v["for"] if v.get("status") == "ready" else []
     v["thumb"] = f"/api/thumb/{vid}"
     v["stream"] = f"/api/stream/{vid}" if v.get("status") == "ready" else None
     if v.get("media") == "audio":
@@ -631,11 +715,16 @@ def decorate_video(v: dict) -> dict:
     return v
 
 
-def library(include_shorts: bool = False) -> list[dict]:
+def library(include_shorts: bool = False, profile_id: int | None = None) -> list[dict]:
+    """Videos on the server. With profile_id, only the ones that profile can
+    see (shared videos plus their own private ones)."""
     rows = db.q("SELECT * FROM videos WHERE status IN ('ready','downloading','queued') "
                 + "AND media='video' " + ("" if include_shorts else "AND is_short=0 ")
                 + "ORDER BY COALESCE(downloaded_at, created_at) DESC")
-    return [decorate_video(r) for r in rows]
+    out = [decorate_video(r) for r in rows]
+    if profile_id is not None:
+        out = [v for v in out if profile_id in v["for"]]
+    return out
 
 
 # ---- music ------------------------------------------------------------------

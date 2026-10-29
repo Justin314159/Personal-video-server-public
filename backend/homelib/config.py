@@ -69,6 +69,10 @@ class Config:
         return self.data_dir / "thumbs"
 
     @property
+    def avatars_dir(self) -> Path:
+        return self.data_dir / "avatars"
+
+    @property
     def subs_dir(self) -> Path:
         return self.library_dir / "subs"
 

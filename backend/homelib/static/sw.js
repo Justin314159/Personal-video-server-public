@@ -1,6 +1,6 @@
 // Service worker: caches the app shell only (never videos or API data),
 // so the Home Screen app opens instantly and shows a friendly error offline.
-const CACHE = 'homelib-shell-v4';
+const CACHE = 'homelib-shell-v5';
 const SHELL = [
   '/', '/index.html', '/css/app.css', '/manifest.webmanifest',
   '/js/app.js', '/js/api.js', '/js/state.js', '/js/theme.js', '/js/router.js', '/js/layout.js', '/js/ui.js',

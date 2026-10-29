@@ -67,8 +67,10 @@ class DownloadManager:
                 queue_scope: str | None = None) -> dict:
         """Create (or reuse) a download for a video and optionally queue it.
 
-        queue_scope: 'personal', 'shared' or None. It also decides who must
-        watch the video before auto-delete removes it.
+        queue_scope: 'personal', 'shared' or None. It also decides who sees
+        the video and who must watch it before auto-delete removes it: only
+        'shared' makes it everyone's, anything else keeps it private to the
+        person who downloaded it.
         """
         if quality not in ("best", "compat", "mp3", "m4a"):
             raise ValueError("quality must be 'best', 'compat', 'mp3' or 'm4a'")
@@ -78,8 +80,12 @@ class DownloadManager:
         v = library.upsert_video(meta, added_by=requested_by)
         fresh = not existing_video or existing_video["status"] in ("new", "deleted", "error")
         if fresh:
-            audience = f"p:{requested_by}" if (queue_scope == "personal" and requested_by) else "all"
+            audience = f"p:{requested_by}" if (queue_scope != "shared" and requested_by) else "all"
             library.set_audience(vid, audience)
+        elif requested_by:
+            # Already on the server (maybe as someone else's private video):
+            # now it's for this person too.
+            library.widen_audience(vid, requested_by, queue_scope or "personal")
         if queue_scope in ("personal", "shared") and requested_by:
             library.queue_add(vid, queue_scope, requested_by)
         if v["status"] == "ready":

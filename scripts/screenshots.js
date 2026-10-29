@@ -42,7 +42,7 @@ fs.mkdirSync(out, { recursive: true });
   await page.waitForTimeout(600);
   await page.click('.vlist .vitem:not(:has(.badge)) >> nth=1');
   await page.waitForTimeout(400);
-  await page.click('.sheet .option >> text=Shared queue');
+  await page.click('.sheet .option >> text=Share with both of us');
   await page.click('.sheet .btn.primary');
   await page.waitForTimeout(1200);
 

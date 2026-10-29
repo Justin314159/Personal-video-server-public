@@ -9,7 +9,7 @@
 // Playlist videos load in place (same <video> element), so the next one can
 // start even while the phone is locked.
 import { api } from '../api.js';
-import { h, put, icon, thumbEl, fmtDuration, toast, sheet, emptyState, avatar, pop, watchInfo, skeleton, errorState } from '../ui.js';
+import { h, put, icon, thumbEl, fmtDuration, toast, sheet, emptyState, avatar, pop, watchInfo, skeleton, errorState, copyText } from '../ui.js';
 import { screen, nav } from '../layout.js';
 import { state } from '../state.js';
 import { navigate, back } from '../router.js';
@@ -561,6 +561,21 @@ function buildPlayer(root, first, listId) {
   }
 
   // ---- transcript (searchable, tap a line to jump there) ------------------------------
+  // Plain text for "Copy": the words as paragraphs, a new one at each pause.
+  function transcriptText(cues) {
+    const paras = [];
+    let cur = [], last = null, prevEnd = null;
+    for (const c of cues) {
+      const t = c.text.replace(/\s+/g, ' ').trim();
+      if (!t || t === last) continue;
+      if (cur.length && prevEnd != null && c.start - prevEnd >= 2.5) { paras.push(cur.join(' ')); cur = []; }
+      cur.push(t);
+      last = t;
+      prevEnd = c.end;
+    }
+    if (cur.length) paras.push(cur.join(' '));
+    return paras.join('\n\n');
+  }
   let trOff = null;
   async function openTranscript(scroll = false) {
     if (trOff) { trOff(); trOff = null; }
@@ -610,7 +625,11 @@ function buildPlayer(root, first, listId) {
     };
     on(input, 'input', paint);
     on(list, 'scroll', () => { userScrolled = Date.now(); }, { passive: true });
-    put(panel, h('div.row', h('h3.grow', 'Transcript', h('span.muted.small', ` · ${pick.label}`)), closeBtn),
+    const copyBtn = h('button.chip', { 'aria-label': 'Copy the whole transcript', onclick: async () => {
+      const ok = await copyText(transcriptText(tr.cues));
+      toast(ok ? 'Transcript copied' : 'Couldn’t copy. Try again.', 2200, ok ? 'check' : null);
+    } }, icon('copy'), 'Copy');
+    put(panel, h('div.row', h('h3.grow', 'Transcript', h('span.muted.small', ` · ${pick.label}`)), copyBtn, closeBtn),
       h('label.field', icon('search'), input), count, list);
     paint();
     const follow = () => {
@@ -667,7 +686,11 @@ function buildPlayer(root, first, listId) {
       chip(v.keep ? 'Kept' : 'Keep', 'pin', async () => {
         try { v = { ...v, keep: !v.keep ? 1 : 0 }; await api.keep(v.id, !!v.keep); toast(v.keep ? 'Kept: won’t be auto-deleted' : 'Auto-delete back on', 2200, 'check'); renderActions(); } catch (e) { toast(e.message); }
       }, !!v.keep),
-      chip('Shared queue', 'plus', async () => { try { await api.queueAdd(v.id, 'shared'); toast('Added to Shared queue', 2000, 'check'); } catch (e) { toast(e.message); } }),
+      v.shared === false && state.profiles.length > 1
+        ? chip('Share with both of us', 'users', async () => {
+          try { v = { ...v, ...(await api.shareVideo(v.id)) }; toast('Shared: it’s in the Shared queue', 2200, 'check'); renderActions(); } catch (e) { toast(e.message); }
+        })
+        : chip('Shared queue', 'plus', async () => { try { await api.queueAdd(v.id, 'shared'); toast('Added to Shared queue', 2000, 'check'); } catch (e) { toast(e.message); } }),
       chip('My queue', 'plus', async () => { try { await api.queueAdd(v.id, 'personal'); toast('Added to My queue', 2000, 'check'); } catch (e) { toast(e.message); } }),
       chip('Delete', 'trash', () => deleteSheet(v, { onDeleted: afterDeleted })));
   }

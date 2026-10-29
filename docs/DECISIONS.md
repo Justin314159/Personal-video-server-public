@@ -12,10 +12,10 @@ most worth a second look.
    line in `cleaner.decide()`.
 2. **10-minute grace.** Nothing is auto-deleted while someone touched it in the last
    10 minutes, so a video can't vanish mid-watch when it crosses the age limit.
-3. ★ **"Relevant profiles".** Shared queue, or downloaded with "Just download" →
-   both people must watch. "My queue" → only that person. If the other person later
-   adds it to their own queue, or anyone puts it in Shared, it widens to both (never
-   narrows).
+3. ★ **"Relevant profiles".** Shared queue (or "Share with both of us") → both
+   people must watch. "My queue" or "Just download" → only that person (1.4.0;
+   "Just download" used to mean both). If the other person later downloads or
+   queues it too, or anyone shares it, it widens to both (never narrows).
 4. **Watched = 90 % or the end.** Finishing removes it from your personal queue; it
    stays in Shared (with watched-by avatars) until deleted.
 5. **Only manual deletes count as "delete-unwatched −1".** Auto-deletes by age are
@@ -50,7 +50,7 @@ most worth a second look.
 17. **Ranking is live, fetching is nightly.** The 03:30 job only refreshes the
     candidate pool; scores are recomputed on each request (cheap at a few hundred
     candidates) so slider changes apply instantly. The pool is also filled on first
-    start and by "Fetch suggestions now".
+    start and by the reload button (see 67).
 18. **Embeddings**: `embeddings.py` + `[recommender] embeddings = true` adds a
     "similar titles" term if `sentence-transformers` is installed. Not vendored,
     off by default: PyTorch + model would take 1–2 GB of the 4 GB RAM.
@@ -209,3 +209,26 @@ most worth a second look.
     one place. `#/queue` still works and opens My queue.
 66. **Text follows Dynamic Type.** `html { font: -apple-system-body }` and `rem` sizes,
     so the iPhone's Text Size setting scales the app.
+67. **A reload replaces the whole feed.** The reload button and the 03:30 run set
+    aside everything the feed was showing (hidden for 30 days) and swap the pool for
+    a fresh search, so a reload never shows the same suggestions again. Each reload
+    rotates the topics and digs 10 results deeper (20–50 per search) so repeated
+    reloads still find new videos. "Both of us" has its own reload. If the searches
+    fail (offline) the old pool is kept rather than emptied.
+68. ★ **Downloads are private by default.** What you download from your profile only
+    shows up for you (Library, Downloads, search) and is deleted once *you* have
+    watched it. Only the Shared queue, a shared playlist or "Share with both of us"
+    makes a video both of yours. The download sheet preselects "Share with both of
+    us" only when opened from For you → Both of us. Sharing is one-way, like the
+    audience rule in 3. It's hiding in the app, not access control: there are no
+    passwords (see the Profiles screen).
+69. **Playlists start private and stay keep-forever.** New playlists default to "Just
+    for me"; "Share with both of us" on a playlist shares it and its videos. Videos
+    in any playlist are still never auto-deleted (63).
+70. **Copy transcript = plain paragraphs.** No timestamps; a new paragraph after a
+    pause of 2.5 s or more, repeated lines dropped. Uses the clipboard API with a
+    hidden-textarea fallback for older iOS.
+71. **Profile photos are resized on the phone.** Canvas centre-crop to a 256px JPEG
+    keeps the server free of an imaging library (no new dependency for the offline
+    USB package); the server only checks size (≤ 2 MB) and JPEG/PNG/WebP magic
+    bytes.

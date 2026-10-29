@@ -1,7 +1,63 @@
 import { api, isPreview } from '../api.js';
-import { h, icon, seg, toast, avatar, fmtBytes, confirmSheet } from '../ui.js';
+import { h, icon, seg, toast, avatar, fmtBytes, confirmSheet, sheet } from '../ui.js';
 import { screen, topbar, nav } from '../layout.js';
 import { state, loadProfiles } from '../state.js';
+
+// ---- profile photo ---------------------------------------------------------------
+const PHOTO_PX = 256;
+
+// Shrink and centre-crop a picked photo to a small square JPEG on the phone,
+// so the server never has to process images.
+async function squarePhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    if (!side) throw new Error('empty image');
+    const c = document.createElement('canvas');
+    c.width = c.height = PHOTO_PX;
+    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, PHOTO_PX, PHOTO_PX);
+    return c.toDataURL('image/jpeg', 0.85);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function photoButton(p) {
+  const input = h('input', { type: 'file', accept: 'image/*', class: 'sr-only', tabindex: '-1', 'aria-hidden': 'true' });
+  const btn = h('button.avatar-edit', { 'aria-label': 'Profile photo' },
+    avatar(p), h('span.cam', { 'aria-hidden': 'true' }, icon('camera')));
+  const refresh = async () => {
+    await loadProfiles();
+    // Swap the avatars on this page (row + top bar) for the new one.
+    for (const el of document.querySelectorAll('.avatar-edit > .avatar, .topbar .avatar-btn > .avatar')) el.replaceWith(avatar(state.profile));
+  };
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      await api.setAvatar(p.id, await squarePhoto(file));
+      await refresh();
+      toast('Photo saved', 2200, 'check');
+    } catch (e) {
+      toast(e.status ? e.message : 'That photo couldn’t be opened. Try another one.');
+    }
+  });
+  btn.addEventListener('click', () => {
+    if (!state.profile.avatar) { input.click(); return; }
+    sheet((close) => h('div',
+      h('h2', { style: { marginBottom: '8px' } }, 'Profile photo'),
+      h('button.menu-item', { onclick: () => { close(); input.click(); } }, icon('camera'), 'Choose a new photo'),
+      h('button.menu-item.danger', { onclick: async () => {
+        close();
+        try { await api.removeAvatar(p.id); await refresh(); toast('Photo removed'); } catch (err) { toast(err.message); }
+      } }, icon('trash'), 'Remove photo')));
+  });
+  return [btn, input];
+}
 
 export const settingsScreen = {
   async render(root) {
@@ -27,7 +83,7 @@ export const settingsScreen = {
     root.append(screen(
       topbar('Settings'),
       h('div.group',
-        h('div.item', avatar(p), nameInput, h('span.val', 'Rename')),
+        h('div.item', photoButton(p), nameInput, h('span.val', 'Rename')),
         link('#/profiles', 'users', 'Switch profile', state.profiles.filter((x) => x.id !== p.id).map((x) => x.name).join(', '))),
 
       h('div.section-title', 'Download quality'),

@@ -1,6 +1,8 @@
 """FastAPI application: JSON API + the static frontend, in one process."""
 from __future__ import annotations
 
+import base64
+import binascii
 import ipaddress
 import json
 import logging
@@ -168,7 +170,13 @@ class PlaylistBody(BaseModel):
 
 
 class PlaylistRenameBody(BaseModel):
-    name: str = Field(min_length=1, max_length=60)
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    scope: Literal["shared"] | None = None  # "Share with both of us" (one way)
+
+
+class AvatarBody(BaseModel):
+    """A profile photo as a data: URL or bare base64 (already resized in the app)."""
+    data: str = Field(min_length=1, max_length=3_000_000)
 
 
 class PlaylistAddBody(BaseModel):
@@ -290,6 +298,28 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
     def rename(pid: int, body: RenameBody):
         return library.rename_profile(pid, body.name)
 
+    @app.put("/api/profiles/{pid}/avatar")
+    def put_avatar(pid: int, body: AvatarBody):
+        raw = body.data.split(",", 1)[1] if body.data.startswith("data:") else body.data
+        try:
+            data = base64.b64decode(raw, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(400, "That photo couldn't be read. Try another one.")
+        return library.set_avatar(pid, data, cfg.avatars_dir)
+
+    @app.delete("/api/profiles/{pid}/avatar")
+    def delete_avatar(pid: int):
+        return library.remove_avatar(pid, cfg.avatars_dir)
+
+    @app.get("/api/profiles/{pid}/avatar")
+    def get_avatar(pid: int):
+        f = library.avatar_file(cfg.avatars_dir, pid)
+        if not f:
+            raise HTTPException(404, "no photo")
+        media = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[f.suffix[1:]]
+        # The URL carries ?v=<time it was set>, so it can be cached for long.
+        return FileResponse(f, media_type=media, headers={"Cache-Control": "private, max-age=31536000"})
+
     # ---- search ------------------------------------------------------------------
     @app.get("/api/search")
     def search(q: str, n: int = 15, pid: int = Depends(profile_id)):
@@ -309,8 +339,10 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
         ids = [r["id"] for r in results]
         local = {}
         if ids:
+            # Someone else's private download counts as "not downloaded" here.
             local = {v["id"]: v["status"] for v in db.q(
-                f"SELECT id, status FROM videos WHERE id IN ({','.join('?' * len(ids))})", ids)}
+                f"SELECT id, status FROM videos WHERE id IN ({','.join('?' * len(ids))})", ids)
+                if v["status"] not in ("ready", "queued", "downloading") or library.visible_to(v["id"], pid)}
         for r in results:
             r["thumb"] = f"/api/thumb/{r['id']}"
             r["local_status"] = local.get(r["id"])
@@ -342,8 +374,10 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
         return dm.enqueue(meta, body.quality or quality_default(), "user", pid, scope)
 
     @app.get("/api/downloads")
-    def list_downloads(background: bool = True):
-        return {"downloads": dm.list(include_background=background), "counts": dm.counts()}
+    def list_downloads(background: bool = True, pid: int = Depends(profile_id)):
+        rows = [d for d in dm.list(include_background=background)
+                if d["kind"] == "background" or d["requested_by"] == pid or library.visible_to(d["video_id"], pid)]
+        return {"downloads": rows, "counts": dm.counts()}
 
     @app.post("/api/downloads/{did}/{action}")
     def control(did: int, action: Literal["pause", "resume", "cancel"]):
@@ -460,9 +494,9 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
 
     # ---- library / videos ----------------------------------------------------------
     @app.get("/api/library")
-    def get_library(shorts: bool = False):
+    def get_library(shorts: bool = False, pid: int = Depends(profile_id)):
         hours = scheduler.current_auto_delete_hours(cfg)
-        items = library.library(include_shorts=shorts)
+        items = library.library(include_shorts=shorts, profile_id=pid)
         for v in items:
             v["expires_at"] = cleaner.expires_at(v, hours)
         return {"videos": items, "auto_delete_hours": hours}
@@ -476,6 +510,12 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
     @app.delete("/api/videos/{vid}")
     def delete_video(vid: str, pid: int = Depends(profile_id)):
         return library.delete_video(vid, "manual", pid, cfg.library_dir, cfg.thumbs_dir)
+
+    @app.post("/api/videos/{vid}/share")
+    def share_video(vid: str, pid: int = Depends(profile_id)):
+        v = library.share_video(vid, pid)
+        v["expires_at"] = cleaner.expires_at(v, scheduler.current_auto_delete_hours(cfg))
+        return v
 
     @app.post("/api/videos/{vid}/keep")
     def keep(vid: str, body: KeepBody):
@@ -542,7 +582,12 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
 
     @app.patch("/api/playlists/{plid}")
     def rename_playlist(plid: int, body: PlaylistRenameBody, pid: int = Depends(profile_id)):
-        return library.rename_playlist(plid, body.name, pid)
+        pl = None
+        if body.name is not None:
+            pl = library.rename_playlist(plid, body.name, pid)
+        if body.scope == "shared":
+            pl = library.share_playlist(plid, pid)
+        return pl or library.get_playlist(plid, pid)
 
     @app.delete("/api/playlists/{plid}")
     def delete_playlist(plid: int, pid: int = Depends(profile_id)):
@@ -673,6 +718,7 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
     def foryou(mode: Literal["me", "both"] = "me", limit: int = 40, pid: int = Depends(profile_id)):
         include_shorts = recommender.algo_settings(pid).get("include_shorts_in_feed")
         items = recommender.rank(pid, mode, limit=limit, shorts=None if include_shorts else False)
+        recommender.remember_shown(pid, mode, [c["id"] for c in items])
         for c in items:
             _remember_thumb(c)
         return {"mode": mode, "items": items,
@@ -684,9 +730,8 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
         return recommender.explain(pid, vid, mode)
 
     @app.post("/api/foryou/refresh")
-    def refresh(pid: int = Depends(profile_id)):
-        n = recommender.fetch_candidates(yt, pid)
-        return {"fetched": n}
+    def refresh(mode: Literal["me", "both"] = "me", pid: int = Depends(profile_id)):
+        return recommender.reload_feed(yt, pid, mode)
 
     @app.get("/api/shorts")
     def shorts(pid: int = Depends(profile_id)):

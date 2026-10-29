@@ -53,7 +53,7 @@ disk space*).
 * Tailscale must be connected on the phone.
 * Videos use the default quality from Settings; music uses the default music format
   unless the action says `mp3` or `m4a`.
-* Other actions the server accepts: `video-none` (download without queueing), `m4a`.
+* Other actions the server accepts: `video-none` (download without queueing, still private to that profile), `m4a`.
 * `profile` can be the name (any capitalisation) or the number 1/2.
 
 ## The API (for tinkering)
