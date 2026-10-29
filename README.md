@@ -84,7 +84,8 @@ USB stick. In short:
    the `https://….ts.net` address in Safari, then Share → **Add to Home Screen**.
 
 Day-to-day operation (updates, backups, logs, troubleshooting) is in
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md).
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md). What's new in each release, and how
+to update, is in [`updates/`](updates/README.md).
 
 ## Configuration
 
@@ -172,6 +173,7 @@ preview_src/mockapi.js  in-browser fake API used by the preview
 packaging/              install/update/uninstall/backup/selfcheck/run scripts, config example
 scripts/                build_preview.py, build_usb.sh, screenshot scripts
 docs/                   setup, operations, architecture, design decisions
+updates/                release notes (one page per version) and how to update
 ```
 
 How it works and why: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),

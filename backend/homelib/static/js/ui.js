@@ -90,6 +90,8 @@ const ICONS = {
   listadd: '<path d="M3 6h12M3 12h12M3 18h7"/><path d="M18 14v7M14.5 17.5h7"/>',
   checkcircle: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/>',
   text: '<path d="M4 6h16M4 10h16M4 14h10M4 18h13"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+  camera: '<path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   library: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   replay: '<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/>',
@@ -146,8 +148,34 @@ export function initials(name) {
   return (clean[0] || '?').toUpperCase();
 }
 
+// The profile photo if there is one, otherwise the initial on the accent colour.
 export function avatar(profile, cls = '') {
-  return h(`span.avatar${cls ? '.' + cls : ''}`, { style: { '--a': profile.accent }, 'aria-hidden': 'true' }, initials(profile.name));
+  const el = h(`span.avatar${cls ? '.' + cls : ''}`, { style: { '--a': profile.accent }, 'aria-hidden': 'true' }, initials(profile.name));
+  if (profile.avatar) {
+    const img = h('img', { src: profile.avatar, alt: '', decoding: 'async' });
+    img.onerror = () => img.remove();  // fall back to the initial
+    el.classList.add('photo');
+    el.append(img);
+  }
+  return el;
+}
+
+// Copy text to the clipboard. Older iOS needs the hidden-textarea fallback.
+export async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = h('textarea', { readonly: '', style: { position: 'fixed', top: '0', left: '0', opacity: '0' } });
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+    ta.remove();
+    return ok;
+  }
 }
 
 let toastEl, toastTimer;

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     id          INTEGER PRIMARY KEY,
     name        TEXT NOT NULL,
     accent      TEXT NOT NULL,
+    avatar_at   REAL,                         -- when the profile photo was last set (NULL = initials)
     created_at  REAL NOT NULL
 );
 
@@ -115,6 +116,15 @@ CREATE TABLE IF NOT EXISTS reco_cache (
     PRIMARY KEY (profile_id, video_id)
 );
 
+-- Suggestions a profile has already been shown and moved past with a feed
+-- reload (manual or nightly). profile_id 0 = "Both of us".
+CREATE TABLE IF NOT EXISTS reco_seen (
+    profile_id  INTEGER NOT NULL,
+    video_id    TEXT NOT NULL,
+    ts          REAL NOT NULL,
+    PRIMARY KEY (profile_id, video_id)
+);
+
 -- Named playlists: 'shared' (profile_id NULL, both see them) or 'personal'.
 CREATE TABLE IF NOT EXISTS playlists (
     id          INTEGER PRIMARY KEY,
@@ -188,6 +198,9 @@ def _migrate(c: sqlite3.Connection) -> None:
     ws_cols = {r[1] for r in c.execute("PRAGMA table_info(watch_state)")}
     if "speed" not in ws_cols:  # per video, per profile playback speed (1.3.0)
         c.execute("ALTER TABLE watch_state ADD COLUMN speed REAL")
+    p_cols = {r[1] for r in c.execute("PRAGMA table_info(profiles)")}
+    if "avatar_at" not in p_cols:  # profile photos (1.4.0)
+        c.execute("ALTER TABLE profiles ADD COLUMN avatar_at REAL")
 
 
 def conn() -> sqlite3.Connection:

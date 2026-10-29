@@ -67,7 +67,7 @@ function pub(v) { return { id: v.id, title: v.title, channel: v.channel, channel
 let S = load();
 
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 3) return s; } catch { /* ignore */ }
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 4) return s; } catch { /* ignore */ }
   return seed();
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* ignore */ } }
@@ -75,7 +75,7 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { 
 function seed() {
   const t = now();
   const s = {
-    v: 3, ids: 100, playlists: [], subs: [], votes: {},
+    v: 4, ids: 100, playlists: [], subs: [], votes: {}, seen: {}, shown: {},
     profiles: [{ id: 1, name: 'Alex', accent: '#46D3B8' }, { id: 2, name: 'Sam', accent: '#F2B84B' }],
     themes: {}, videos: {}, queue: [], watch: { 1: {}, 2: {} }, downloads: [], events: [],
     algo: { 1: clone(DEFAULT_ALGO), 2: clone(DEFAULT_ALGO) }, settings: { default_quality: 'compat', auto_delete_hours: 24, music_format: 'mp3' },
@@ -173,8 +173,12 @@ function relevant(v) {
   if (v.audience === 'all' || S.queue.some((q) => q.video_id === v.id && q.scope === 'shared')) return pids();
   const owners = new Set(S.queue.filter((q) => q.video_id === v.id && q.scope === 'personal').map((q) => q.profile_id));
   if (v.audience.startsWith('p:')) owners.add(Number(v.audience.slice(2)));
-  return [...owners].sort();
+  const out = [...owners].filter((p) => pids().includes(p)).sort();
+  return out.length ? out : pids();
 }
+// Private downloads only show up for the people they are for.
+const visible = (v, pid = P()) => relevant(v).includes(pid);
+const onServer = (v) => ['ready', 'downloading', 'queued'].includes(v.status);
 function fakeCues(v) {
   const words = `welcome back to ${v.channel} today we are looking at ${v.title.toLowerCase()} let's get started first a quick overview of what you will need then we go step by step if you enjoyed this one there is more on the channel thanks for watching`.split(' ');
   const out = [];
@@ -227,7 +231,9 @@ function decorate(v) {
   const d = [...S.downloads].reverse().find((x) => x.video_id === v.id) || null;
   const needsVlc = !!v.vcodec && !/^(avc1|h264|hvc1|hev1|hevc)/i.test(v.vcodec);
   const audio = v.media === 'audio';
-  return { ...v, watch, download: d, needs_vlc: needsVlc, delete_votes: S.votes[v.id] || [], in_playlist: inPlaylist(v.id), relevant: v.status === 'ready' && !audio ? relevant(v) : [], thumb: `thumbs/${ytid(v.id)}.svg`,
+  const forWho = relevant(v);
+  return { ...v, watch, download: d, needs_vlc: needsVlc, delete_votes: S.votes[v.id] || [], in_playlist: inPlaylist(v.id), relevant: v.status === 'ready' && !audio ? forWho : [], thumb: `thumbs/${ytid(v.id)}.svg`,
+    for: forWho, shared: pids().every((p) => forWho.includes(p)),
     stream: v.status === 'ready' ? mediaFor(v) : null,
     file: audio && v.status === 'ready' ? mediaFor(v) : undefined, format: audio ? v.quality : undefined,
     expires_at: v.keep || inPlaylist(v.id) || !v.downloaded_at ? null : v.downloaded_at + S.settings.auto_delete_hours * HOUR };
@@ -367,6 +373,7 @@ function rank(pid, mode, shorts = false) {
   const { prof, s, who, ids } = context(pid, mode);
   const excluded = new Set(Object.values(S.videos).filter((v) => ['ready', 'downloading', 'queued'].includes(v.status)).map((v) => v.id));
   for (const p of ids) for (const [id, w] of Object.entries(S.watch[p])) if (w.watched || w.rating < 0) excluded.add(id);
+  for (const id of seenFor(pid, mode)) excluded.add(id);
   const out = [];
   for (const c of CATALOG) {
     if (excluded.has(c.id) || (shorts !== null && c.is_short !== shorts)) continue;
@@ -375,6 +382,11 @@ function rank(pid, mode, shorts = false) {
   }
   return out.sort((a, b) => b.score - a.score).slice(0, 30);
 }
+
+// "Reload": what the feed shows is set aside, so the next batch is all new.
+// (The demo catalog is small, so it starts over once it runs out.)
+const bucket = (pid, mode) => (mode === 'both' ? 0 : pid);
+function seenFor(pid, mode) { S.seen = S.seen || {}; return S.seen[bucket(pid, mode)] || []; }
 
 // ---------------------------------------------------------------- the API
 const P = () => { try { return Number(localStorage.getItem('hl.profile')) || 1; } catch { return 1; } };
@@ -401,6 +413,8 @@ function theme(pid) {
 }
 
 const api = {
+  async setAvatar(id, dataUrl) { const p = S.profiles.find((x) => x.id === id); p.avatar = dataUrl; save(); return delay(p, 150); },
+  async removeAvatar(id) { const p = S.profiles.find((x) => x.id === id); p.avatar = null; save(); return delay(p); },
   async profiles() { return delay(S.profiles.map((p) => ({ ...p, theme: theme(p.id) })), 30); },
   async selectProfile(id) { const p = S.profiles.find((x) => x.id === id); return delay({ ...p, theme: theme(id) }, 30); },
   async renameProfile(id, name) { S.profiles.find((p) => p.id === id).name = name; save(); return delay(S.profiles.find((p) => p.id === id)); },
@@ -415,21 +429,22 @@ const api = {
       const kws = keywords(q);
       if (kws.length) { addEvent(P(), 'search', null, { query: q, keywords: kws }); save(); }
     }
-    return delay({ results: results.map((v) => ({ ...pub(v), thumb: `thumbs/${v.id}.svg`, local_status: S.videos[v.id] ? S.videos[v.id].status : null })) }, 350);
+    return delay({ results: results.map((v) => ({ ...pub(v), thumb: `thumbs/${v.id}.svg`, local_status: S.videos[v.id] && (!onServer(S.videos[v.id]) || visible(S.videos[v.id])) ? S.videos[v.id].status : null })) }, 350);
   },
   async download(video, quality, queue) {
     const pid = P();
     const meta = BY_ID[video.id] || video;
     const existing = S.videos[video.id];
     if (!existing || ['new', 'deleted', 'error'].includes(existing.status)) {
-      S.videos[video.id] = { ...pub(meta), status: 'queued', quality, audience: queue === 'personal' ? `p:${pid}` : 'all', keep: 0 };
+      S.videos[video.id] = { ...pub(meta), status: 'queued', quality, audience: queue === 'shared' ? 'all' : `p:${pid}`, keep: 0 };
       S.downloads.push({ id: S.ids++, video_id: video.id, quality, kind: 'user', status: 'queued', progress: 0, done_ms: 0, total: meta.is_short ? 6e6 : 2.4e8 + (hashNum(meta.id) % 9) * 3e7, created_at: now() });
     }
+    else if (!visible(existing, pid)) existing.audience = 'all';  // both picked it
     if (queue === 'personal' || queue === 'shared') queueAdd(video.id, queue, pid);
     advance(); save();
     return delay(dlView([...S.downloads].reverse().find((d) => d.video_id === video.id)));
   },
-  async downloads() { advance(); const order = { running: 0, queued: 1, paused: 2 }; return delay({ downloads: [...S.downloads].sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || b.id - a.id).map(dlView), counts: {} }, 40); },
+  async downloads() { advance(); const order = { running: 0, queued: 1, paused: 2 }; return delay({ downloads: [...S.downloads].filter((d) => d.kind === 'background' || !S.videos[d.video_id] || visible(S.videos[d.video_id])).sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || b.id - a.id).map(dlView), counts: {} }, 40); },
   async dlControl(id, action) {
     const d = S.downloads.find((x) => x.id === id);
     if (action === 'pause' && d.status === 'running') { d.done_ms += Date.now() - d.started_ms; d.status = 'paused'; d.speed = null; d.eta = null; S.videos[d.video_id].status = 'queued'; }
@@ -465,9 +480,10 @@ const api = {
       .sort((a, b) => (b.downloaded_at || b.created_at || now()) - (a.downloaded_at || a.created_at || now())).map(decorate);
     return delay({ tracks }, 60);
   },
-  async library() { advance(); cleaner(); save(); return delay({ videos: Object.values(S.videos).filter((v) => v.status === 'ready' && !v.is_short && v.media !== 'audio').sort((a, b) => b.downloaded_at - a.downloaded_at).map(decorate), auto_delete_hours: S.settings.auto_delete_hours }); },
+  async library() { advance(); cleaner(); save(); return delay({ videos: Object.values(S.videos).filter((v) => v.status === 'ready' && !v.is_short && v.media !== 'audio' && visible(v)).sort((a, b) => b.downloaded_at - a.downloaded_at).map(decorate), auto_delete_hours: S.settings.auto_delete_hours }); },
   async video(id) { return delay(decorate(S.videos[id] || { ...pub(BY_ID[id]), status: 'new' })); },
   async deleteVideo(id) { removeVideo(id, 'manual', P()); save(); return delay({ id, reason: 'manual' }); },
+  async shareVideo(id) { const v = S.videos[id]; if (!v || !visible(v)) return fail('That isn’t on the server any more.', 404); queueAdd(id, 'shared', P()); v.audience = 'all'; save(); return delay(decorate(v)); },
   async keep(id, keep) { S.videos[id].keep = keep ? 1 : 0; save(); return delay(decorate(S.videos[id])); },
   async rate(id, value) { const r = rate(P(), id, value); save(); return delay(r); },
   async rateCandidate(video, value) { rate(P(), video.id, value, video); save(); return delay({ ok: true }); },
@@ -507,10 +523,16 @@ const api = {
   async playlists() { const pid = P(); return delay({ playlists: S.playlists.filter((p) => p.scope === 'shared' || p.profile_id === pid).sort((a, b) => (a.scope === b.scope ? b.updated_at - a.updated_at : a.scope === 'shared' ? -1 : 1)).map(playlistView) }, 80); },
   async playlist(id) { try { return delay(playlistView(visiblePl(id)), 60); } catch (e) { return Promise.reject(e); } },
   async createPlaylist(name, scope) { const pl = { id: S.ids++, name: name.trim().slice(0, 60), scope, profile_id: scope === 'personal' ? P() : null, created_at: now(), updated_at: now(), items: [] }; S.playlists.push(pl); save(); return delay(playlistView(pl)); },
+  async sharePlaylist(id) {
+    const pl = visiblePl(id);
+    if (pl.scope === 'personal') { pl.scope = 'shared'; pl.profile_id = null; pl.updated_at = now(); pl.items.forEach((i) => { if (S.videos[i.video_id]) S.videos[i.video_id].audience = 'all'; }); }
+    save(); return delay(playlistView(pl));
+  },
   async renamePlaylist(id, name) { const pl = visiblePl(id); pl.name = name.trim().slice(0, 60); pl.updated_at = now(); save(); return delay(playlistView(pl)); },
   async deletePlaylist(id) { visiblePl(id); S.playlists = S.playlists.filter((p) => p.id !== Number(id)); save(); return delay({ ok: true }); },
   async playlistAdd(id, videoId) {
     const pl = visiblePl(id);
+    if (!S.videos[videoId] || !visible(S.videos[videoId])) return fail('That isn’t on the server any more.', 404);
     if (!pl.items.some((i) => i.video_id === videoId)) pl.items.push({ item_id: S.ids++, video_id: videoId, position: Math.max(0, ...pl.items.map((i) => i.position)) + 1 });
     pl.updated_at = now();
     if (pl.scope === 'shared') S.videos[videoId].audience = 'all';
@@ -560,7 +582,10 @@ const api = {
   },
   async foryou(mode) {
     const s = algo(P());
-    return delay({ mode, items: rank(P(), mode, s.include_shorts_in_feed ? null : false), last_fetch: S.last_fetch, fetching: false }, 250);
+    const items = rank(P(), mode, s.include_shorts_in_feed ? null : false);
+    S.shown = S.shown || {};
+    S.shown[bucket(P(), mode)] = items.map((x) => x.id); save();
+    return delay({ mode, items, last_fetch: S.last_fetch, fetching: false }, 250);
   },
   async why(id, mode) {
     const { prof, s, who } = context(P(), mode);
@@ -570,7 +595,15 @@ const api = {
     terms.push({ kind: 'ch', term: v.channel, ...(prof.ch[v.channel] || { weight: 0, counts: {} }) });
     return delay({ video: pub(v), result: r, terms, settings: s, source: '' });
   },
-  async refreshForyou() { S.last_fetch = now(); save(); return delay({ fetched: 40 }, 600); },
+  async refreshForyou(mode = 'me') {
+    const b = bucket(P(), mode);
+    S.seen = S.seen || {}; S.shown = S.shown || {};
+    S.seen[b] = [...new Set([...(S.seen[b] || []), ...(S.shown[b] || [])])];
+    S.shown[b] = [];
+    if (rank(P(), mode).length < 6) S.seen[b] = [];  // demo catalog ran out: start over
+    S.last_fetch = now(); save();
+    return delay({ fetched: 40, suggestions: rank(P(), mode).length }, 900);
+  },
   async shorts() {
     const pid = P(), { prof, s } = context(pid, 'me');
     const items = Object.values(S.videos).filter((v) => v.is_short && v.media !== 'audio' && v.status === 'ready' && !(S.watch[pid][v.id] && S.watch[pid][v.id].watched))

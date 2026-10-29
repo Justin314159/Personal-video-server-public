@@ -7,6 +7,19 @@ import { downloadSheet, whySheet, candidateMenu, videoMenu } from './common.js';
 let mode = 'me';
 let stopPtr = null;
 
+// Reload: set aside everything the feed is showing and fetch a fresh batch.
+async function reloadFeed(btn, load) {
+  btn.disabled = true;
+  btn.classList.add('spin');
+  try {
+    const r = await api.refreshForyou(mode);
+    toast(r.suggestions ? `${r.suggestions} new suggestion${r.suggestions === 1 ? '' : 's'}` : 'No new suggestions right now. Try again later.', 2600, r.suggestions ? 'check' : null);
+  } catch (err) { toast(err.message); }
+  btn.disabled = false;
+  btn.classList.remove('spin');
+  await load();
+}
+
 export const foryouScreen = {
   async render(root) {
     nav('foryou');
@@ -20,12 +33,12 @@ export const foryouScreen = {
         renderShorts(strip, sh);
         if (!fy.items.length) {
           put(list, emptyState('sparkle', 'Nothing here yet',
-            fy.fetching ? 'Fetching suggestions now…' : 'Search and watch a few videos. New suggestions are fetched every night at 03:30.',
-            h('button.btn', { onclick: async (e) => { e.target.disabled = true; try { await api.refreshForyou(); } catch (err) { toast(err.message); } load(); } }, icon('refresh'), 'Fetch suggestions now')));
+            fy.fetching ? 'Fetching suggestions now…' : 'Search and watch a few videos. The feed reloads every night at 03:30, or tap reload.',
+            h('button.btn', { onclick: (e) => reloadFeed(e.currentTarget, load) }, icon('refresh'), 'Fetch suggestions now')));
           return;
         }
         put(list, ...fy.items.map((v) => h('article.vitem',
-          h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load }), 'aria-label': `Download ${v.title}` }, thumbEl(v)),
+          h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load, shared: mode === 'both' }), 'aria-label': `Download ${v.title}` }, thumbEl(v)),
           h('div.meta',
             h('div.grow',
               h('div.title.clamp2', v.title),
@@ -38,8 +51,9 @@ export const foryouScreen = {
         put(list, errorState(e, load));
       }
     };
+    const reloadBtn = h('button.icon-btn.reload', { 'aria-label': 'Reload suggestions', title: 'Reload suggestions', onclick: () => reloadFeed(reloadBtn, load) }, icon('refresh'));
     root.append(screen(
-      topbar('For you'),
+      topbar('For you', { right: reloadBtn }),
       cont,
       seg([['me', 'Just me'], ['both', 'Both of us']], mode, (v) => { mode = v; put(list, skeleton('grid', 3)); load(); }),
       strip,

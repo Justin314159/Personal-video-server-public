@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Back up the database (online, consistent) and config. Videos are not backed up:
-# they are temporary by design. Keeps the newest 14 backups.
+# Back up the database (online, consistent), config and profile photos. Videos are
+# not backed up: they are temporary by design. Keeps the newest 14 backups.
 #   sudo ./backup.sh [--quiet] [DEST_DIR]
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 need_root "$@"
@@ -21,8 +21,10 @@ s.backup(d)   # safe while the server is running (WAL)
 d.close(); s.close()
 PY
 cp "$ETC/config.toml" "$TMP/" 2>/dev/null || true
+[ -d "$DATA_DIR/avatars" ] && cp -r "$DATA_DIR/avatars" "$TMP/"
 tar -C "$TMP" -czf "$DEST/homelib-$STAMP.tar.gz" .
 ls -1t "$DEST"/homelib-*.tar.gz | tail -n +15 | xargs -r rm -f
 [ "$QUIET" = 1 ] || say "Backup written: $DEST/homelib-$STAMP.tar.gz"
 # Restore: sudo systemctl stop homelib; tar -xzf FILE -C /tmp/r; cp /tmp/r/homelib.db $DATA_DIR/;
-#          chown homelib: $DATA_DIR/homelib.db; sudo systemctl start homelib
+#          cp -r /tmp/r/avatars $DATA_DIR/ (if present); chown -R homelib: $DATA_DIR/homelib.db $DATA_DIR/avatars;
+#          sudo systemctl start homelib

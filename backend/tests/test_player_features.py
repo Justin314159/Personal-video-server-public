@@ -199,8 +199,12 @@ def test_playlists_crud_reorder_and_privacy(client):
     assert client.get(f"/api/playlists/{mine['id']}", headers=P2).status_code == 404
     assert [p["name"] for p in client.get("/api/playlists", headers=P2).json()["playlists"]] == ["Movie night"]
     assert {p["id"] for p in client.get("/api/playlists", headers=P1).json()["playlists"]} == {mine["id"], shared["id"]}
-    client.post(f"/api/playlists/{shared['id']}/items", json={"video_id": a}, headers=P2)
-    assert library.get_video(a)["audience"] == "all"  # shared playlist -> everyone's video
+    # P1's plain download is private: P2 can't add it anywhere...
+    assert client.post(f"/api/playlists/{shared['id']}/items", json={"video_id": a}, headers=P2).status_code == 404
+    assert library.get_video(a)["audience"] == "p:1"
+    # ...until P1 puts it in a shared playlist, which makes it everyone's video.
+    client.post(f"/api/playlists/{shared['id']}/items", json={"video_id": a}, headers=P1)
+    assert library.get_video(a)["audience"] == "all"
     assert set(client.get(f"/api/videos/{a}/playlists", headers=P1).json()["playlist_ids"]) == {mine["id"], shared["id"]}
     assert client.get(f"/api/videos/{a}/playlists", headers=P2).json()["playlist_ids"] == [shared["id"]]
     assert client.delete(f"/api/playlists/{mine['id']}", headers=P2).status_code == 404

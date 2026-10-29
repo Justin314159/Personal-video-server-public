@@ -45,6 +45,7 @@ cp "$ROOT/backend/requirements.txt" "$STAGE/app/"
 find "$STAGE/app" -name __pycache__ -type d -prune -exec rm -rf {} +
 cp "$ROOT"/packaging/{install.sh,update.sh,uninstall.sh,backup.sh,selfcheck.sh,run.sh,lib.sh,config.example.toml,PROMPT.md} "$STAGE/"
 cp "$ROOT"/docs/*.md "$STAGE/docs/"
+mkdir -p "$STAGE/updates" && cp "$ROOT"/updates/*.md "$STAGE/updates/"
 echo "$VERSION" > "$STAGE/VERSION"
 chmod 755 "$STAGE"/*.sh
 

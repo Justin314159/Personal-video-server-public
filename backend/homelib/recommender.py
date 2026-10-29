@@ -15,6 +15,10 @@
                  + explore * 0.3 * daily_jitter (stable for a day)
    Muted keywords/channels, disliked and already downloaded videos are excluded.
 
+4. Reloading the feed (the button, or the nightly run) sets aside everything
+   the feed was showing (for 30 days) and swaps the candidate pool for a
+   fresh batch, so a reload always brings new suggestions.
+
 3. Every score comes with human-readable reasons and a numeric breakdown.
 
 Optional sentence-transformers embeddings add a 'semantic' term; they are off
@@ -26,6 +30,7 @@ import hashlib
 import json
 import logging
 import math
+import threading
 import time
 from collections import defaultdict
 
@@ -46,6 +51,9 @@ DEFAULT_ALGO = {
 }
 BOOST_DEFAULT = 2.0
 EMBEDDINGS_ENABLED = False  # set from config by app.create_app; see embeddings.py
+SEEN_DAYS = 30             # how long a reloaded-away suggestion stays hidden
+RELOAD_PER_QUERY = 20     # results per search on a reload; each reload digs 10 deeper, up to 50
+_reload_lock = threading.Lock()
 EVENT_LABELS = {"finish": "finished", "like": "liked", "dislike": "disliked",
                 "delete_unwatched": "deleted unwatched", "skip": "skipped", "search": "searched"}
 
@@ -282,14 +290,14 @@ def rank(profile_id: int, mode: str = "me", limit: int = 40, shorts: bool | None
         settings = blend_settings(sets)
         who = "you both"
         pool_ids = pids
-        excluded = excluded_video_ids(pids)
+        excluded = excluded_video_ids(pids) | seen_ids(0)
         cache_pid = 0
     else:
         settings = algo_settings(profile_id)
         prof = build_profile(profile_id, settings)
         who = "you"
         pool_ids = [profile_id]
-        excluded = excluded_video_ids([profile_id])
+        excluded = excluded_video_ids([profile_id]) | seen_ids(profile_id)
         cache_pid = profile_id
     ph = ",".join("?" * len(pool_ids))
     rows = db.q(f"SELECT video_id, meta, source FROM reco_cache WHERE profile_id IN ({ph})", pool_ids)
@@ -321,6 +329,62 @@ def rank(profile_id: int, mode: str = "me", limit: int = 40, shorts: bool | None
                  (cache_pid, c["id"], json.dumps(_meta_only(c)), c.get("source", ""), c["score"],
                   json.dumps({"reasons": c["reasons"], "breakdown": c["breakdown"]}), t, t))
     return out
+
+
+# ---- reloading the feed -------------------------------------------------------------
+
+def _shown_setting(profile_id: int, mode: str) -> tuple[str, str]:
+    # "Both of us" is one feed for the two of you, so it is remembered once.
+    return ("global", "foryou_shown_both") if mode == "both" else (f"profile:{profile_id}", "foryou_shown")
+
+
+def remember_shown(profile_id: int, mode: str, video_ids: list[str]) -> None:
+    """What the For you feed is currently showing (set aside on the next reload)."""
+    db.set_setting(*_shown_setting(profile_id, mode), list(video_ids))
+
+
+def seen_ids(bucket: int) -> set[str]:
+    return {r["video_id"] for r in db.q("SELECT video_id FROM reco_seen WHERE profile_id=? AND ts>=?",
+                                        (bucket, now() - SEEN_DAYS * 86400))}
+
+
+def set_aside_shown(profile_id: int, mode: str) -> int:
+    """Hide the suggestions the feed was showing, so a reload brings new ones."""
+    scope, key = _shown_setting(profile_id, mode)
+    ids = db.get_setting(scope, key, []) or []
+    bucket = 0 if mode == "both" else profile_id
+    t = now()
+    with db.tx():
+        for vid in ids:
+            db.x("INSERT INTO reco_seen(profile_id, video_id, ts) VALUES(?,?,?) "
+                 "ON CONFLICT(profile_id, video_id) DO UPDATE SET ts=excluded.ts", (bucket, vid, t))
+        db.x("DELETE FROM reco_seen WHERE ts < ?", (t - SEEN_DAYS * 86400,))
+    db.set_setting(scope, key, [])
+    return len(ids)
+
+
+def reload_feed(yt, profile_id: int, mode: str = "me") -> dict:
+    """The reload button: set aside what you were shown and fetch a fresh batch.
+    'both' refreshes both profiles' candidates."""
+    pids = library.profile_ids() if mode == "both" else [profile_id]
+    with _reload_lock:
+        set_aside_shown(profile_id, mode)
+        fetched = sum(fetch_candidates(yt, p, fresh=True) for p in pids)
+    return {"fetched": fetched, "suggestions": len(rank(profile_id, mode))}
+
+
+def nightly_reload(yt) -> None:
+    """The 03:30 run: the same full reload for every profile and for "Both of us"."""
+    pids = library.profile_ids()
+    with _reload_lock:
+        for p in pids:
+            set_aside_shown(p, "me")
+        set_aside_shown(pids[0], "both")
+        for p in pids:
+            try:
+                fetch_candidates(yt, p, fresh=True)
+            except Exception:
+                log.exception("candidate fetch failed for profile %s", p)
 
 
 def _add_semantic(cands: list[dict], pids: list[int], settings: dict) -> None:
@@ -372,8 +436,10 @@ def explain(profile_id: int, video_id: str, mode: str = "me") -> dict:
 
 # ---- candidate fetching ---------------------------------------------------------
 
-def candidate_queries(profile_id: int, max_queries: int = 6) -> list[tuple[str, str, bool]]:
-    """(query, source label, shorts?) to run for the nightly candidate fetch."""
+def candidate_queries(profile_id: int, max_queries: int = 6, rotation: int = 0) -> list[tuple[str, str, bool]]:
+    """(query, source label, shorts?) to run for the nightly candidate fetch.
+    rotation shifts which long-tail and starter topics are picked, so each
+    reload searches for something a bit different."""
     s = algo_settings(profile_id)
     prof = build_profile(profile_id, s)
     mutes = set(s["mutes"])
@@ -383,6 +449,9 @@ def candidate_queries(profile_id: int, max_queries: int = 6) -> list[tuple[str, 
     chs.sort(key=lambda t: -t[1])
     qs: list[tuple[str, str, bool]] = []
     top = [k for k, _ in kws[:6]]
+    if rotation and top:  # pair the favourite topics up differently on each reload
+        r = rotation % len(top)
+        top = top[r:] + top[:r]
     for i in range(0, min(len(top), 4), 2):
         pair = " ".join(top[i:i + 2])
         qs.append((pair, f"topic:{pair}", False))
@@ -391,7 +460,7 @@ def candidate_queries(profile_id: int, max_queries: int = 6) -> list[tuple[str, 
     # Exploration: the long tail of weaker interests plus the starter topics.
     tail = [k for k, _ in kws[6:14]]
     starters = list(s["starter_topics"])
-    day = int(now() // 86400)
+    day = int(now() // 86400) + rotation
     if tail:
         qs.append((tail[day % len(tail)], "explore:" + tail[day % len(tail)], False))
     for i in range(max(1, max_queries - len(qs))):
@@ -409,11 +478,19 @@ def candidate_queries(profile_id: int, max_queries: int = 6) -> list[tuple[str, 
     return uniq[: max_queries + 1]
 
 
-def fetch_candidates(yt, profile_id: int, per_query: int = 10) -> int:
-    """Run the candidate searches and store results in reco_cache."""
+def fetch_candidates(yt, profile_id: int, per_query: int = 10, fresh: bool = False) -> int:
+    """Run the candidate searches and store results in reco_cache.
+
+    fresh=True (a reload) digs deeper into the results, rotates the topics
+    and replaces the profile's pool with what came back."""
     n = 0
     t = now()
-    for query, source, shorts in candidate_queries(profile_id):
+    rotation = 0
+    if fresh:
+        rotation = (db.get_setting(f"profile:{profile_id}", "reload_count", 0) or 0) + 1
+        db.set_setting(f"profile:{profile_id}", "reload_count", rotation)
+        per_query = max(per_query, RELOAD_PER_QUERY + 10 * (rotation % 4))
+    for query, source, shorts in candidate_queries(profile_id, rotation=rotation):
         try:
             results = yt.search(query, per_query, shorts=shorts)
         except Exception as e:
@@ -427,8 +504,10 @@ def fetch_candidates(yt, profile_id: int, per_query: int = 10) -> int:
                      "ON CONFLICT(profile_id, video_id) DO UPDATE SET meta=excluded.meta, source=excluded.source, "
                      "fetched_at=excluded.fetched_at", (profile_id, r["id"], json.dumps(r), source, t))
                 n += 1
-    # Forget candidates that weren't refreshed for a week.
-    db.x("DELETE FROM reco_cache WHERE profile_id=? AND fetched_at < ?", (profile_id, t - 7 * 86400))
+    # Forget candidates that weren't refreshed for a week, or, on a reload,
+    # everything from before it (unless every search failed, e.g. offline).
+    cutoff = t if (fresh and n) else t - 7 * 86400
+    db.x("DELETE FROM reco_cache WHERE profile_id=? AND fetched_at < ?", (profile_id, cutoff))
     log.info("fetched %d candidates for profile %d", n, profile_id)
     return n
 

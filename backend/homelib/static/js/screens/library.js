@@ -1,4 +1,5 @@
-// Library tab: everything on the server, the two queues, and playlists.
+// Library tab: your videos on the server (shared ones plus your private
+// downloads), the two queues, and playlists.
 import { api } from '../api.js';
 import { h, put, icon, thumbEl, seg, emptyState, skeleton, errorState, pullToRefresh, fmtDuration, watchInfo } from '../ui.js';
 import { screen, topbar, nav } from '../layout.js';
@@ -84,7 +85,8 @@ export function card(v, reload) {
     h('button.vitem', { onclick: () => navigate(ready ? `#/player/${encodeURIComponent(v.id)}` : '#/downloads'), 'aria-label': `${ready ? 'Play' : 'Downloading'}: ${v.title}${watched ? ', watched' : pos ? `, ${Math.round(pos * 100)}% watched` : ''}` },
       thumbEl(v, { bar: pos, watched, shade, badge: v.keep ? 'Kept' : null })),
     h('div.meta',
-      h('div.grow', h('div.title.clamp2', v.title), h('div.sub.ellipsis', v.channel)),
+      h('div.grow', h('div.title.clamp2', v.title),
+        h('div.sub.ellipsis', [v.shared === false && state.profiles.length > 1 ? 'Just you' : null, v.channel].filter(Boolean).join(' · '))),
       h('button.icon-btn.more', { 'aria-label': `More options for ${v.title}`, onclick: () => videoMenu(v, { onChange: reload }) }, icon('more'))));
 }
 

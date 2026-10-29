@@ -62,11 +62,7 @@ def prefetch_shorts(cfg, yt, dm) -> int:
 
 
 def nightly(cfg, yt) -> None:
-    for pid in library.profile_ids():
-        try:
-            recommender.fetch_candidates(yt, pid)
-        except Exception:
-            log.exception("candidate fetch failed for profile %s", pid)
+    recommender.nightly_reload(yt)
     for pid in library.profile_ids():
         recommender.rank(pid, "me")
     recommender.rank(library.profile_ids()[0], "both")

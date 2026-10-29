@@ -164,6 +164,8 @@ const http = {
   profiles: () => call('GET', '/api/profiles'),
   selectProfile: (id) => call('POST', `/api/profiles/${id}/select`),
   renameProfile: (id, name) => call('PATCH', `/api/profiles/${id}`, { name }),
+  setAvatar: (id, dataUrl) => call('PUT', `/api/profiles/${id}/avatar`, { data: dataUrl }),
+  removeAvatar: (id) => call('DELETE', `/api/profiles/${id}/avatar`),
   search: (q) => call('GET', `/api/search?q=${enc(q)}`),
   download: (video, quality, queue) => call('POST', '/api/downloads', { ...pick(video), quality, queue }),
   downloads: () => call('GET', '/api/downloads'),
@@ -172,6 +174,7 @@ const http = {
   library: () => call('GET', '/api/library'),
   video: (id) => call('GET', `/api/videos/${enc(id)}`),
   deleteVideo: (id) => call('DELETE', `/api/videos/${enc(id)}`),
+  shareVideo: (id) => call('POST', `/api/videos/${enc(id)}/share`),
   keep: (id, keep) => call('POST', `/api/videos/${enc(id)}/keep`, { keep }),
   rate: (id, value) => call('POST', `/api/videos/${enc(id)}/rate`, { value }),
   rateCandidate: (video, value) => call('POST', '/api/candidates/rate', { video: pick(video, true), value }),
@@ -183,7 +186,7 @@ const http = {
   progress: (id, body) => call('POST', `/api/watch/${enc(id)}`, body),
   foryou: (mode) => call('GET', `/api/foryou?mode=${mode}`),
   why: (id, mode) => call('GET', `/api/foryou/why/${enc(id)}?mode=${mode}`),
-  refreshForyou: () => call('POST', '/api/foryou/refresh'),
+  refreshForyou: (mode = 'me') => call('POST', `/api/foryou/refresh?mode=${mode}`),
   shorts: () => call('GET', '/api/shorts'),
   shortSeen: (id, seconds, duration) => call('POST', `/api/shorts/${enc(id)}/seen`, { seconds, duration }),
   prefetchShorts: () => call('POST', '/api/shorts/prefetch'),
@@ -210,6 +213,7 @@ const http = {
   playlist: (id) => call('GET', `/api/playlists/${id}`),
   createPlaylist: (name, scope) => call('POST', '/api/playlists', { name, scope }),
   renamePlaylist: (id, name) => call('PATCH', `/api/playlists/${id}`, { name }),
+  sharePlaylist: (id) => call('PATCH', `/api/playlists/${id}`, { scope: 'shared' }),
   deletePlaylist: (id) => call('DELETE', `/api/playlists/${id}`),
   playlistAdd: (id, videoId) => call('POST', `/api/playlists/${id}/items`, { video_id: videoId }),
   playlistRemove: (id, itemId) => call('DELETE', `/api/playlists/${id}/items/${itemId}`),
@@ -592,6 +596,8 @@ const ICONS = {
   listadd: '<path d="M3 6h12M3 12h12M3 18h7"/><path d="M18 14v7M14.5 17.5h7"/>',
   checkcircle: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16.5 9.5"/>',
   text: '<path d="M4 6h16M4 10h16M4 14h10M4 18h13"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+  camera: '<path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
   library: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   replay: '<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/>',
@@ -648,8 +654,34 @@ function initials(name) {
   return (clean[0] || '?').toUpperCase();
 }
 
+// The profile photo if there is one, otherwise the initial on the accent colour.
 function avatar(profile, cls = '') {
-  return h(`span.avatar${cls ? '.' + cls : ''}`, { style: { '--a': profile.accent }, 'aria-hidden': 'true' }, initials(profile.name));
+  const el = h(`span.avatar${cls ? '.' + cls : ''}`, { style: { '--a': profile.accent }, 'aria-hidden': 'true' }, initials(profile.name));
+  if (profile.avatar) {
+    const img = h('img', { src: profile.avatar, alt: '', decoding: 'async' });
+    img.onerror = () => img.remove();  // fall back to the initial
+    el.classList.add('photo');
+    el.append(img);
+  }
+  return el;
+}
+
+// Copy text to the clipboard. Older iOS needs the hidden-textarea fallback.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const ta = h('textarea', { readonly: '', style: { position: 'fixed', top: '0', left: '0', opacity: '0' } });
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+    ta.remove();
+    return ok;
+  }
 }
 
 let toastEl, toastTimer;
@@ -837,7 +869,7 @@ function toggle(checked, onChange, label) {
   return h('label.toggle', input, h('span'));
 }
 
-  Object.assign(__exports, { h, put, icon, fmtDuration, fmtBytes, fmtViews, fmtAgo, fmtLeft, initials, avatar, toast, sheet, confirmSheet, thumbEl, watchInfo, skeleton, errorState, pullToRefresh, promptSheet, pop, seg, emptyState, debounce, toggle });
+  Object.assign(__exports, { h, put, icon, fmtDuration, fmtBytes, fmtViews, fmtAgo, fmtLeft, initials, avatar, copyText, toast, sheet, confirmSheet, thumbEl, watchInfo, skeleton, errorState, pullToRefresh, promptSheet, pop, seg, emptyState, debounce, toggle });
 });
 __hl_define("js/screens/profiles.js", function (__exports, __require) {
   const { h, icon, avatar } = __require("js/ui.js");
@@ -968,19 +1000,21 @@ const QUALITY = [
   ['best', 'Best quality', 'Up to 4K. Some files are VP9/AV1 and may need VLC on the phone.'],
 ];
 
-async function downloadSheet(video, { onDone } = {}) {
+// shared: opened from "Both of us", so it starts on "Share with both of us".
+// Everywhere else a download is private to whoever downloads it.
+async function downloadSheet(video, { onDone, shared = false } = {}) {
   if (!state.settings) state.settings = await api.settings();
   if (video.local_status === 'ready' || video.status === 'ready') {
     navigate(`#/player/${encodeURIComponent(video.id)}`);
     return;
   }
   let quality = video.is_short ? 'compat' : state.settings.default_quality;
-  let dest = 'personal';
+  let dest = shared ? 'shared' : 'personal';
   const other = state.profiles.find((p) => p.id !== state.profile.id);
   const DEST = [
-    ['personal', 'My queue', `Only ${state.profile.name} needs to watch it before it's auto-deleted.`],
-    ['shared', 'Shared queue', `Shows up for both of you. Deleted after you've ${other ? 'both' : 'all'} watched.`],
-    ['none', 'Just download', 'Goes to the library without queueing.'],
+    ['personal', 'My queue', `Only ${state.profile.name} sees it. Deleted once you've watched it.`],
+    ['none', 'Just download', `Only ${state.profile.name} sees it, in the library, without queueing.`],
+    ['shared', other ? 'Share with both of us' : 'Shared queue', `Shows up for ${other ? `${other.name} too` : 'everyone'}, in the Shared queue. Deleted after you've ${other ? 'both' : 'all'} watched.`],
   ];
   sheet((close) => {
     const qWrap = h('div.stack');
@@ -1001,7 +1035,7 @@ async function downloadSheet(video, { onDone } = {}) {
         go.disabled = true;
         try {
           await api.download(video, quality, dest);
-          toast(dest === 'none' ? 'Downloading' : `Downloading → ${dest === 'shared' ? 'Shared' : 'My'} queue`);
+          toast(dest === 'none' ? 'Downloading (just for you)' : `Downloading → ${dest === 'shared' ? 'Shared' : 'My'} queue`);
           close();
           onDone && onDone();
         } catch (e) {
@@ -1061,7 +1095,7 @@ function candidateMenu(item, mode, onChange) {
     const topic = (item.keywords || [])[0];
     return h('div',
       h('h2.clamp2', { style: { marginBottom: '8px' } }, item.title),
-      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange })),
+      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange, shared: mode === 'both' })),
       act('Why am I seeing this?', 'info', () => whySheet(item, mode)),
       act('Not interested', 'dislike', async () => { await api.rateCandidate(item, -1); toast('Got it. Less like this.'); }),
       topic ? act(`More about “${topic}”`, 'bolt', async () => { await api.boost('kw', topic, 2); toast(`Boosted “${topic}”`); }) : null,
@@ -1077,8 +1111,8 @@ async function newPlaylistSheet() {
   const other = state.profiles.find((p) => p.id !== state.profile.id);
   const opts = h('div.stack');
   const paint = () => put(opts, ...[
-    ['personal', 'Just for me', `Only ${state.profile.name} sees it.`],
-    ['shared', 'Shared', `${other ? `${other.name} sees it too` : 'Everyone sees it'} and can add videos.`],
+    ['personal', 'Just for me', `Only ${state.profile.name} sees it. You can share it later.`],
+    ['shared', other ? 'Share with both of us' : 'Shared', `${other ? `${other.name} sees it too` : 'Everyone sees it'} and can add videos. Its videos become shared too.`],
   ].map(([v, t, d]) => h('button.option', { type: 'button', class: scope === v ? 'on' : '', 'aria-pressed': String(scope === v), onclick: () => { scope = v; paint(); } },
     h('span.radio'), h('span', h('div.t', t), h('div.d', d)))));
   paint();
@@ -1201,6 +1235,17 @@ function deleteSheet(video, { onDeleted } = {}) {
 
 // ---- per-video menu (library, playlists, continue watching) ----------------------------
 
+// "Share with both of us" for a private video (null when it's already shared).
+function shareAction(video, act, onChange) {
+  const other = state.profiles.find((p) => p.id !== state.profile.id);
+  if (!other || video.shared !== false || !['ready', 'queued', 'downloading'].includes(video.status)) return null;
+  return act('Share with both of us', 'users', async () => {
+    await api.shareVideo(video.id);
+    toast(`Shared with ${other.name}: it’s in the Shared queue`, 2600, 'check');
+    onChange && onChange();
+  });
+}
+
 function videoMenu(video, { onChange, extra = [] } = {}) {
   const me = state.profile.id;
   const ws = (video.watch || {})[me];
@@ -1218,6 +1263,7 @@ function videoMenu(video, { onChange, extra = [] } = {}) {
         onChange && onChange();
       }) : null,
       act('Save to playlist…', 'listadd', () => addToPlaylistSheet(video)),
+      shareAction(video, act, onChange),
       ...extra.map(([label, ic, fn, cls]) => act(label, ic, fn, cls || '')),
       video.status === 'ready' ? act(video.keep ? 'Allow auto-delete' : 'Keep (never auto-delete)', 'pin', async () => {
         await api.keep(video.id, !video.keep);
@@ -1245,6 +1291,19 @@ __hl_define("js/screens/foryou.js", function (__exports, __require) {
 let mode = 'me';
 let stopPtr = null;
 
+// Reload: set aside everything the feed is showing and fetch a fresh batch.
+async function reloadFeed(btn, load) {
+  btn.disabled = true;
+  btn.classList.add('spin');
+  try {
+    const r = await api.refreshForyou(mode);
+    toast(r.suggestions ? `${r.suggestions} new suggestion${r.suggestions === 1 ? '' : 's'}` : 'No new suggestions right now. Try again later.', 2600, r.suggestions ? 'check' : null);
+  } catch (err) { toast(err.message); }
+  btn.disabled = false;
+  btn.classList.remove('spin');
+  await load();
+}
+
 const foryouScreen = {
   async render(root) {
     nav('foryou');
@@ -1258,12 +1317,12 @@ const foryouScreen = {
         renderShorts(strip, sh);
         if (!fy.items.length) {
           put(list, emptyState('sparkle', 'Nothing here yet',
-            fy.fetching ? 'Fetching suggestions now…' : 'Search and watch a few videos. New suggestions are fetched every night at 03:30.',
-            h('button.btn', { onclick: async (e) => { e.target.disabled = true; try { await api.refreshForyou(); } catch (err) { toast(err.message); } load(); } }, icon('refresh'), 'Fetch suggestions now')));
+            fy.fetching ? 'Fetching suggestions now…' : 'Search and watch a few videos. The feed reloads every night at 03:30, or tap reload.',
+            h('button.btn', { onclick: (e) => reloadFeed(e.currentTarget, load) }, icon('refresh'), 'Fetch suggestions now')));
           return;
         }
         put(list, ...fy.items.map((v) => h('article.vitem',
-          h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load }), 'aria-label': `Download ${v.title}` }, thumbEl(v)),
+          h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load, shared: mode === 'both' }), 'aria-label': `Download ${v.title}` }, thumbEl(v)),
           h('div.meta',
             h('div.grow',
               h('div.title.clamp2', v.title),
@@ -1276,8 +1335,9 @@ const foryouScreen = {
         put(list, errorState(e, load));
       }
     };
+    const reloadBtn = h('button.icon-btn.reload', { 'aria-label': 'Reload suggestions', title: 'Reload suggestions', onclick: () => reloadFeed(reloadBtn, load) }, icon('refresh'));
     root.append(screen(
-      topbar('For you'),
+      topbar('For you', { right: reloadBtn }),
       cont,
       seg([['me', 'Just me'], ['both', 'Both of us']], mode, (v) => { mode = v; put(list, skeleton('grid', 3)); load(); }),
       strip,
@@ -1329,7 +1389,8 @@ __hl_define("js/screens/library.js", function (__exports, __require) {
   const { navigate } = __require("js/router.js");
   const { videoMenu, newPlaylistSheet } = __require("js/screens/common.js");
   const { queueList } = __require("js/screens/queue.js");
-// Library tab: everything on the server, the two queues, and playlists.
+// Library tab: your videos on the server (shared ones plus your private
+// downloads), the two queues, and playlists.
 
 
 
@@ -1415,7 +1476,8 @@ function card(v, reload) {
     h('button.vitem', { onclick: () => navigate(ready ? `#/player/${encodeURIComponent(v.id)}` : '#/downloads'), 'aria-label': `${ready ? 'Play' : 'Downloading'}: ${v.title}${watched ? ', watched' : pos ? `, ${Math.round(pos * 100)}% watched` : ''}` },
       thumbEl(v, { bar: pos, watched, shade, badge: v.keep ? 'Kept' : null })),
     h('div.meta',
-      h('div.grow', h('div.title.clamp2', v.title), h('div.sub.ellipsis', v.channel)),
+      h('div.grow', h('div.title.clamp2', v.title),
+        h('div.sub.ellipsis', [v.shared === false && state.profiles.length > 1 ? 'Just you' : null, v.channel].filter(Boolean).join(' · '))),
       h('button.icon-btn.more', { 'aria-label': `More options for ${v.title}`, onclick: () => videoMenu(v, { onChange: reload }) }, icon('more'))));
 }
 
@@ -1552,11 +1614,17 @@ function paint(body, pl, reload) {
   const ready = pl.items.filter((v) => v.status === 'ready');
   const firstUnwatched = ready.find((v) => !watchInfo(v, me).watched) || ready[0];
   const owner = pl.scope === 'shared' ? 'Shared with both of you' : `Just ${(profileById(pl.profile_id) || state.profile).name}`;
+  const other = state.profiles.find((p) => p.id !== me);
   const header = h('div.pl-head',
     h('div.muted.small', `${owner} · ${pl.count} video${pl.count === 1 ? '' : 's'}${pl.duration ? ` · ${fmtDuration(pl.duration)}` : ''}`),
     h('div.row.wrap', { style: { marginTop: '12px', gap: '8px' } },
       firstUnwatched ? h('a.btn.primary', { href: `#/player/${encodeURIComponent(firstUnwatched.id)}/list/${pl.id}` }, icon('play'), firstUnwatched === ready[0] ? 'Play all' : 'Continue') : null,
       h('button.btn', { onclick: () => addVideosSheet(pl, reload) }, icon('plus'), 'Add'),
+      pl.scope === 'personal' && other ? h('button.btn', { onclick: async () => {
+        if (await confirmSheet('Share with both of us?', `${other.name} will see “${pl.name}” and its videos, and can add to it. Shared videos are deleted once you’ve both watched them (videos in a playlist are kept).`, 'Share', false)) {
+          try { await api.sharePlaylist(pl.id); toast(`Shared with ${other.name}`, 2200, 'check'); reload(); } catch (e) { toast(e.message); }
+        }
+      } }, icon('users'), 'Share with both of us') : null,
       h('button.icon-btn.filled', { 'aria-label': 'Rename playlist', onclick: async () => {
         const name = await promptSheet('Rename playlist', { value: pl.name });
         if (name && name !== pl.name) { try { await api.renamePlaylist(pl.id, name); toast('Renamed', 2000, 'check'); reload(); } catch (e) { toast(e.message); } }
@@ -1788,13 +1856,69 @@ function renderLibrary(el, lib, reload) {
 });
 __hl_define("js/screens/settings.js", function (__exports, __require) {
   const { api, isPreview } = __require("js/api.js");
-  const { h, icon, seg, toast, avatar, fmtBytes, confirmSheet } = __require("js/ui.js");
+  const { h, icon, seg, toast, avatar, fmtBytes, confirmSheet, sheet } = __require("js/ui.js");
   const { screen, topbar, nav } = __require("js/layout.js");
   const { state, loadProfiles } = __require("js/state.js");
 
 
 
 
+
+// ---- profile photo ---------------------------------------------------------------
+const PHOTO_PX = 256;
+
+// Shrink and centre-crop a picked photo to a small square JPEG on the phone,
+// so the server never has to process images.
+async function squarePhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    if (!side) throw new Error('empty image');
+    const c = document.createElement('canvas');
+    c.width = c.height = PHOTO_PX;
+    c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, PHOTO_PX, PHOTO_PX);
+    return c.toDataURL('image/jpeg', 0.85);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function photoButton(p) {
+  const input = h('input', { type: 'file', accept: 'image/*', class: 'sr-only', tabindex: '-1', 'aria-hidden': 'true' });
+  const btn = h('button.avatar-edit', { 'aria-label': 'Profile photo' },
+    avatar(p), h('span.cam', { 'aria-hidden': 'true' }, icon('camera')));
+  const refresh = async () => {
+    await loadProfiles();
+    // Swap the avatars on this page (row + top bar) for the new one.
+    for (const el of document.querySelectorAll('.avatar-edit > .avatar, .topbar .avatar-btn > .avatar')) el.replaceWith(avatar(state.profile));
+  };
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      await api.setAvatar(p.id, await squarePhoto(file));
+      await refresh();
+      toast('Photo saved', 2200, 'check');
+    } catch (e) {
+      toast(e.status ? e.message : 'That photo couldn’t be opened. Try another one.');
+    }
+  });
+  btn.addEventListener('click', () => {
+    if (!state.profile.avatar) { input.click(); return; }
+    sheet((close) => h('div',
+      h('h2', { style: { marginBottom: '8px' } }, 'Profile photo'),
+      h('button.menu-item', { onclick: () => { close(); input.click(); } }, icon('camera'), 'Choose a new photo'),
+      h('button.menu-item.danger', { onclick: async () => {
+        close();
+        try { await api.removeAvatar(p.id); await refresh(); toast('Photo removed'); } catch (err) { toast(err.message); }
+      } }, icon('trash'), 'Remove photo')));
+  });
+  return [btn, input];
+}
 
 const settingsScreen = {
   async render(root) {
@@ -1820,7 +1944,7 @@ const settingsScreen = {
     root.append(screen(
       topbar('Settings'),
       h('div.group',
-        h('div.item', avatar(p), nameInput, h('span.val', 'Rename')),
+        h('div.item', photoButton(p), nameInput, h('span.val', 'Rename')),
         link('#/profiles', 'users', 'Switch profile', state.profiles.filter((x) => x.id !== p.id).map((x) => x.name).join(', '))),
 
       h('div.section-title', 'Download quality'),
@@ -1892,7 +2016,7 @@ function serverBox(st) {
 });
 __hl_define("js/screens/player.js", function (__exports, __require) {
   const { api } = __require("js/api.js");
-  const { h, put, icon, thumbEl, fmtDuration, toast, sheet, emptyState, avatar, pop, watchInfo, skeleton, errorState } = __require("js/ui.js");
+  const { h, put, icon, thumbEl, fmtDuration, toast, sheet, emptyState, avatar, pop, watchInfo, skeleton, errorState, copyText } = __require("js/ui.js");
   const { screen, nav } = __require("js/layout.js");
   const { state } = __require("js/state.js");
   const { navigate, back } = __require("js/router.js");
@@ -2461,6 +2585,21 @@ function buildPlayer(root, first, listId) {
   }
 
   // ---- transcript (searchable, tap a line to jump there) ------------------------------
+  // Plain text for "Copy": the words as paragraphs, a new one at each pause.
+  function transcriptText(cues) {
+    const paras = [];
+    let cur = [], last = null, prevEnd = null;
+    for (const c of cues) {
+      const t = c.text.replace(/\s+/g, ' ').trim();
+      if (!t || t === last) continue;
+      if (cur.length && prevEnd != null && c.start - prevEnd >= 2.5) { paras.push(cur.join(' ')); cur = []; }
+      cur.push(t);
+      last = t;
+      prevEnd = c.end;
+    }
+    if (cur.length) paras.push(cur.join(' '));
+    return paras.join('\n\n');
+  }
   let trOff = null;
   async function openTranscript(scroll = false) {
     if (trOff) { trOff(); trOff = null; }
@@ -2510,7 +2649,11 @@ function buildPlayer(root, first, listId) {
     };
     on(input, 'input', paint);
     on(list, 'scroll', () => { userScrolled = Date.now(); }, { passive: true });
-    put(panel, h('div.row', h('h3.grow', 'Transcript', h('span.muted.small', ` · ${pick.label}`)), closeBtn),
+    const copyBtn = h('button.chip', { 'aria-label': 'Copy the whole transcript', onclick: async () => {
+      const ok = await copyText(transcriptText(tr.cues));
+      toast(ok ? 'Transcript copied' : 'Couldn’t copy. Try again.', 2200, ok ? 'check' : null);
+    } }, icon('copy'), 'Copy');
+    put(panel, h('div.row', h('h3.grow', 'Transcript', h('span.muted.small', ` · ${pick.label}`)), copyBtn, closeBtn),
       h('label.field', icon('search'), input), count, list);
     paint();
     const follow = () => {
@@ -2567,7 +2710,11 @@ function buildPlayer(root, first, listId) {
       chip(v.keep ? 'Kept' : 'Keep', 'pin', async () => {
         try { v = { ...v, keep: !v.keep ? 1 : 0 }; await api.keep(v.id, !!v.keep); toast(v.keep ? 'Kept: won’t be auto-deleted' : 'Auto-delete back on', 2200, 'check'); renderActions(); } catch (e) { toast(e.message); }
       }, !!v.keep),
-      chip('Shared queue', 'plus', async () => { try { await api.queueAdd(v.id, 'shared'); toast('Added to Shared queue', 2000, 'check'); } catch (e) { toast(e.message); } }),
+      v.shared === false && state.profiles.length > 1
+        ? chip('Share with both of us', 'users', async () => {
+          try { v = { ...v, ...(await api.shareVideo(v.id)) }; toast('Shared: it’s in the Shared queue', 2200, 'check'); renderActions(); } catch (e) { toast(e.message); }
+        })
+        : chip('Shared queue', 'plus', async () => { try { await api.queueAdd(v.id, 'shared'); toast('Added to Shared queue', 2000, 'check'); } catch (e) { toast(e.message); } }),
       chip('My queue', 'plus', async () => { try { await api.queueAdd(v.id, 'personal'); toast('Added to My queue', 2000, 'check'); } catch (e) { toast(e.message); } }),
       chip('Delete', 'trash', () => deleteSheet(v, { onDeleted: afterDeleted })));
   }
