@@ -9,7 +9,7 @@ except words in `<angle brackets>`, which you replace with your own value.
 **Time:** about 1½ hours, most of it waiting for downloads and the Ubuntu install.
 
 **You need:**
-- the HP micro PC (it will be wiped)
+- A PC: I used an HP micro Pc(it will be wiped)
 - a USB stick, 4 GB or bigger (it will be erased)
 - a USB keyboard and an HDMI monitor/TV for the micro PC (only during setup)
 - an Ethernet cable from the micro PC to your router (strongly recommended; Wi-Fi: see step 3)
