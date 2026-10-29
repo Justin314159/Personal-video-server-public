@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build dist/homelib-usb.zip: app + vendored wheels (cp310-cp314, x86_64) +
 # scripts + docs + SHA-256 manifest. Needs internet (PyPI) to fetch wheels.
+# Also builds dist/homelib-update.zip, the small app-only update (build_update.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/dist"
@@ -56,3 +57,6 @@ echo "== zip"
 ( cd "$OUT" && zip -q -r -X homelib-usb.zip homelib-usb )
 ls -lh "$OUT/homelib-usb.zip"
 echo "files: $(wc -l < "$STAGE/MANIFEST.sha256")  wheels: $(ls "$STAGE/wheels" | wc -l)"
+
+echo "== small update package"
+bash "$ROOT/scripts/build_update.sh" "$STAGE"

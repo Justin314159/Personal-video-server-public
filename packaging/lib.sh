@@ -66,6 +66,40 @@ install_venv() {
       --disable-pip-version-check --upgrade -c "$cons" -r "$PKG_DIR/app/requirements.txt"
 }
 
+# Small update packages (homelib-update.zip) carry no wheels, only the exact
+# versions the app was built with (requires/constraints-cp3XX.txt). They can be
+# applied when the installed venv has every one of them at that version or
+# newer (newer = e.g. after update.sh --yt-dlp-online). Prints what's missing.
+venv_has_requirements() {
+  [ -x "$PREFIX/venv/bin/python" ] || { echo "no existing install in $PREFIX"; return 1; }
+  local tag; tag=$("$PREFIX/venv/bin/python" -c 'import sys; print(f"{sys.version_info[0]}{sys.version_info[1]}")')
+  local cons="$PKG_DIR/requires/constraints-cp$tag.txt"
+  [ -f "$cons" ] || { echo "this package doesn't support the server's Python $tag"; return 1; }
+  "$PREFIX/venv/bin/python" - "$cons" <<'PY'
+import re, sys
+from importlib.metadata import distributions
+try:
+    from packaging.version import Version
+except ImportError:
+    from pip._vendor.packaging.version import Version
+
+norm = lambda n: re.sub(r"[-_.]+", "-", n).lower()
+have = {norm(d.metadata["Name"]): d.version for d in distributions()}
+missing = []
+for line in open(sys.argv[1]):
+    name, sep, want = line.strip().partition("==")
+    if not sep or norm(name) == "pip":
+        continue
+    got = have.get(norm(name))
+    if got is None:
+        missing.append(f"{name} {want} (not installed)")
+    elif Version(got) < Version(want):
+        missing.append(f"{name} {want} (server has {got})")
+print("\n".join(missing))
+sys.exit(1 if missing else 0)
+PY
+}
+
 install_app() {
   say "Installing application to $PREFIX/app"
   rm -rf "$PREFIX/app.new"
