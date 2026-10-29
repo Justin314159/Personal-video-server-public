@@ -1,0 +1,6 @@
+# Runtime dependencies (vendored as wheels in the USB package).
+fastapi
+uvicorn
+yt-dlp[default,deno]
+imageio-ffmpeg
+tomli; python_version < "3.11"

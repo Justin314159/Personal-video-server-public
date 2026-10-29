@@ -1,0 +1,64 @@
+# Home Video Library configuration. Copied to /etc/homelib/config.toml by
+# install.sh (never overwritten on re-install). Restart after editing:
+#   sudo systemctl restart homelib
+
+[server]
+port = 8787
+# "127.0.0.1" (default) + `tailscale serve` gives HTTPS on your tailnet.
+# "tailscale" binds directly to this machine's Tailscale IP (plain HTTP).
+# Any explicit IP also works. 0.0.0.0 is REFUSED unless allow_all_interfaces = true.
+bind = "127.0.0.1"
+# DANGER: true allows bind = "0.0.0.0" (every network this box is on, no login!).
+allow_all_interfaces = false
+
+[library]
+# Where downloaded mp4s live. Must be writable by the 'homelib' user.
+dir = "/var/lib/homelib/library"
+# Database, thumbnails, logs.
+data_dir = "/var/lib/homelib"
+# Refuse new downloads when free space on the library disk drops below this.
+min_free_gb = 15
+
+[downloads]
+# Hard cap on simultaneous downloads (both pools together). Keep at 2 on 4 GB RAM.
+max_concurrent = 2
+# 1 slot for what you ask for, 1 slot for background Shorts prefetch.
+foreground_workers = 1
+background_workers = 1
+# "compat" (H.264 1080p, plays in Safari) or "best" (up to 4K, may need VLC).
+default_quality = "compat"
+# ffmpeg merges run at this nice level (and idle IO priority).
+ffmpeg_nice = 10
+# Download captions with each video (CC button + searchable transcript).
+# Uploaded subtitles are used first, YouTube's automatic captions otherwise.
+subtitles = true
+subtitle_langs = ["en"]
+
+[cleanup]
+# Delete downloads older than this many hours even if unwatched: 12, 24 or 48.
+# (Videos are also deleted as soon as everyone they're for has watched them.
+#  The "Keep" pin blocks both.)
+auto_delete_hours = 24
+
+[profiles]
+# Used only when the database is first created; rename later in Settings.
+names = ["Profile 1", "Profile 2"]
+
+[recommender]
+# Nightly candidate fetch (local time, 24h).
+nightly_time = "03:30"
+# Keep at least this many unseen Shorts downloaded ahead (minimum 10).
+shorts_prefetch = 10
+# sentence-transformers similarity. NOT recommended on a 4 GB box and not
+# included in the USB package (needs `pip install sentence-transformers`).
+embeddings = false
+
+[tools]
+# Leave empty to auto-detect. ffmpeg: system ffmpeg first, then the bundled
+# imageio-ffmpeg binary. js_runtime: bundled deno first, then deno/node on PATH.
+ffmpeg = ""
+js_runtime = ""
+# Optional: a cookies.txt exported from YOUR OWN signed-in YouTube session in a
+# browser. Only needed if downloads start failing with "Sign in to confirm
+# you're not a bot". See docs/OPERATIONS.md. Must be readable by the homelib user.
+cookies_file = ""
