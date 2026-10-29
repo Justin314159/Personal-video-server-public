@@ -19,14 +19,13 @@ on disk.
  │ Scheduler (scheduler.py)                                                     │
  │   ├─ cleaner every 10 min          (cleaner.py)                              │
  │   ├─ Shorts prefetch every 15 min  (keeps ≥10 unseen Shorts on disk)        │
- │   └─ nightly 03:30 feed reload     (recommender.py)                          │
+ │   └─ nightly 03:30 candidate fetch (recommender.py)                          │
  │ SQLite WAL  /var/lib/homelib/homelib.db                                      │
  └──────────────────────────────────────────────────────────────────────────────┘
         │
         ▼
  /var/lib/homelib/library/*.mp4   /var/lib/homelib/thumbs/*.jpg (320px)
  /var/lib/homelib/library/subs/*.vtt (cleaned captions)
- /var/lib/homelib/avatars/<profile>.jpg (profile photos, 256px)
 ```
 
 ## Modules (`backend/homelib/`)
@@ -52,11 +51,10 @@ on disk.
 
 ## Data model (SQLite)
 
-* `profiles` – the two people (id 1 and 2), name, accent colour, `avatar_at`
-  (when the photo was set; the file is `avatars/<id>.jpg`).
+* `profiles` – the two people (id 1 and 2), name, accent colour.
 * `videos` – one row per YouTube id: metadata, keywords, file path, codec, `status`
   (`new|queued|downloading|ready|deleted|error`), `audience` (`all` or `p:<id>`:
-  who the video is for, i.e. who sees it and who must watch before auto-delete), `keep`.
+  who must watch before auto-delete), `keep`.
 * `queue_items` – `scope` `shared` (profile_id NULL) or `personal` (owner), `position`.
 * `watch_state` – per profile + video: position, watched flag, rating (−1/0/1).
 * `downloads` – each download attempt with progress, speed, ETA, phase, `kind`
@@ -76,8 +74,7 @@ on disk.
 
 ## Key flows
 
-**Download.** `POST /api/downloads` → disk guard → upsert video, set audience
-(`all` only for the Shared queue, otherwise private `p:<id>`),
+**Download.** `POST /api/downloads` → disk guard → upsert video, set audience,
 add to queue → insert `downloads` row (`queued`) → worker claims it → yt-dlp
 with the selected format → progress hook writes progress every 0.5 s → merge
 via the low-priority ffmpeg wrapper → file `library/<id>.mp4` → status `ready`
@@ -117,18 +114,7 @@ the usual 10-minute grace.
 **Playlists.** Shared or personal, ordered, any library video. A video in any
 playlist is never auto-deleted (it's a deliberate collection). Deleting the
 video removes it from playlists. Adding to a shared playlist widens the video's
-audience to everyone; so does sharing a personal playlist
-(`PATCH /api/playlists/<id>` with `{"scope": "shared"}`, one way).
-
-**Private videos.** `library.relevant_profiles()` is also who can see a video:
-`/api/library`, `/api/downloads` and search's `local_status` leave out other
-people's private videos, and playlist adds check it. `POST /api/videos/<id>/share`
-sets the audience to everyone and adds it to the Shared queue.
-
-**Profile photos.** The app centre-crops and shrinks a picked photo to a 256px
-JPEG on the phone (canvas), then `PUT /api/profiles/<id>/avatar` with a data URL.
-The server checks size and image magic bytes and stores it; profiles carry
-`avatar: "/api/profiles/<id>/avatar?v=<time>"` for cache-busting. Playing a playlist (`#/player/<id>/list/<playlist>`)
+audience to everyone. Playing a playlist (`#/player/<id>/list/<playlist>`)
 loads each next video into the *same* `<video>`/`<audio>` element (no
 navigation), so it can continue on a locked phone.
 
@@ -142,9 +128,8 @@ and iOS limits: [IOS_PLAYBACK.md](IOS_PLAYBACK.md).
 
 **Auto-delete** (every 10 min). A ready video without Keep is deleted when every
 *relevant* profile has watched it, or when it is older than N hours (12/24/48).
-Relevant = everyone if it was shared (Shared queue, a shared playlist, "Share
-with both of us"); otherwise only the person who downloaded it, plus anyone who
-queued or downloaded it themselves. Nothing is deleted
+Relevant = everyone if it is in the shared queue or was downloaded with no queue;
+otherwise only the people whose personal queue it was in. Nothing is deleted
 within 10 minutes of someone touching it. Each deletion writes an `events` row
 (`type='deleted'`, with the reason) and a log line.
 
@@ -161,13 +146,6 @@ The nightly job (03:30) builds search queries from each profile's top keywords
 and channels, the long tail (exploration) and the user's starter topics, runs
 them through yt-dlp flat search, and stores results in `reco_cache`. Ranking
 itself is cheap and done live, so slider changes apply immediately.
-
-Reloading (the button on For you, `POST /api/foryou/refresh?mode=me|both`, and
-the 03:30 run) first moves what the feed was showing (remembered on each
-`GET /api/foryou`) into `reco_seen` for 30 days, then re-runs the searches with
-rotated topics and 10 more results per search each time (20–50), and replaces
-the profile's pool with what came back. If every search fails (offline) the old
-pool stays.
 
 **Music.** Search tab → Music. Songs come from a YouTube Music search
 (`music.youtube.com/search?q=…#songs`, flat extraction; falls back to a normal

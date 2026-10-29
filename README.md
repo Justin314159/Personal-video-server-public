@@ -18,19 +18,14 @@ only way in (see [Security](#security)).
 - **Search and download**: YouTube search, pasted links, Shorts. Choose
   "Compatible 1080p" (H.264, plays in Safari) or best quality.
 - **Two profiles** with their own queues, watch history, continue watching,
-  themes, profile photos and recommendations, plus a shared queue and shared or
-  personal playlists.
-- **Private by default**: what you download only shows up for your profile.
-  "Share with both of us" (when downloading, or later from the video or a
-  playlist) puts it in front of both of you.
+  themes and recommendations, plus a shared queue and shared or personal playlists.
 - **Player**: drag scrubbing with time preview, YouTube-style double-tap skip,
-  playback speed, captions with a searchable transcript you can copy, audio-only mode,
+  playback speed, captions with a searchable transcript, audio-only mode,
   picture-in-picture and lock-screen controls.
 - **Delete after watching**: downloads are removed once everyone they're for
   has watched them, or after 12/24/48 hours. Pin with "Keep" to stop that.
-- **"For you" recommender** that runs locally and reloads itself overnight, or
-  whenever you tap reload, with all-new suggestions. You can see why each video
-  was suggested and edit or forget what it learned.
+- **"For you" recommender** that runs locally overnight. You can see why each
+  video was suggested and edit or forget what it learned.
 - **Shorts feed** that prefetches in the background.
 - **Music page**: YouTube Music search, mp3/m4a downloads, a mini player, and
   saving songs to the iPhone.
@@ -89,7 +84,8 @@ USB stick. In short:
    the `https://….ts.net` address in Safari, then Share → **Add to Home Screen**.
 
 Day-to-day operation (updates, backups, logs, troubleshooting) is in
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md).
+[`docs/OPERATIONS.md`](docs/OPERATIONS.md). What's new in each release, and how
+to update, is in [`updates/`](updates/README.md).
 
 ## Configuration
 
@@ -177,6 +173,7 @@ preview_src/mockapi.js  in-browser fake API used by the preview
 packaging/              install/update/uninstall/backup/selfcheck/run scripts, config example
 scripts/                build_preview.py, build_usb.sh, screenshot scripts
 docs/                   setup, operations, architecture, design decisions
+updates/                release notes (one page per version) and how to update
 ```
 
 How it works and why: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),

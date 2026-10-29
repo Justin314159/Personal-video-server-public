@@ -96,21 +96,6 @@ Edit `/etc/homelib/config.toml`, then `sudo systemctl restart homelib`. Common o
 
 Auto-delete hours and default quality can also be changed in the app (Settings).
 
-## Private and shared videos
-
-A download is private to whoever downloaded it ("My queue" or "Just
-download"): only they see it in Library, Downloads and search, and it's
-auto-deleted once they've watched it. "Share with both of us" (in the download
-sheet, preselected on For you → Both of us; or later from a video's menu, the
-player, or a playlist) makes it visible to both, puts it in the Shared queue,
-and from then on it waits for both of you before auto-delete. New playlists
-start private too ("Just for me"); a playlist's "Share with both of us" button
-shares it and its videos. Sharing is one-way. This is privacy inside the app,
-not security: anyone on the tailnet can still reach the whole server.
-
-Videos already on the server from before 1.4.0 keep their old setting: "My
-queue" downloads were already private, "Just download" ones stay shared.
-
 ## Captions and transcripts
 
 New downloads fetch captions automatically (`[downloads] subtitles = true`,
@@ -123,8 +108,6 @@ are preferred, otherwise its automatic captions. They're stored as cleaned
 * Your own SRT/VTT file: **Captions** → pick a language → "Subtitle file".
 * A caption download failing (YouTube rate limits subtitles sometimes) never
   stops the video download. Retry later with the button above.
-* **Transcript → Copy** puts the whole transcript on the clipboard as plain
-  paragraphs (a new paragraph at each pause), ready to paste into Notes.
 
 ## Tailscale
 
@@ -144,8 +127,7 @@ for this app (that makes it public).
 ## Backups and restore
 
 `backup.sh` makes a consistent online copy of the SQLite database plus
-`config.toml` and the profile photos (`avatars/`). Videos are not backed up
-(they're temporary by design).
+`config.toml`. Videos are not backed up (they're temporary by design).
 
 Restore:
 
@@ -154,8 +136,7 @@ sudo systemctl stop homelib
 mkdir /tmp/r && sudo tar -xzf /var/backups/homelib/homelib-YYYYMMDD-HHMMSS.tar.gz -C /tmp/r
 sudo cp /tmp/r/homelib.db /var/lib/homelib/homelib.db
 sudo rm -f /var/lib/homelib/homelib.db-wal /var/lib/homelib/homelib.db-shm
-[ -d /tmp/r/avatars ] && sudo cp -r /tmp/r/avatars /var/lib/homelib/
-sudo chown -R homelib: /var/lib/homelib/homelib.db /var/lib/homelib/avatars 2>/dev/null
+sudo chown homelib: /var/lib/homelib/homelib.db
 sudo systemctl start homelib
 ```
 
@@ -182,8 +163,7 @@ From the unzipped package: `./run.sh` (real mode) or `HOMELIB_MOCK=1 ./run.sh`
 | Video won't play in Safari | It was downloaded as "Best quality" with VP9/AV1. Tap "Open in VLC", or download again as Compatible. |
 | Box feels slow during downloads | Expected on a 2-core CPU during merges; ffmpeg already runs at nice 10 / idle IO. Lower `max_concurrent` to 1. |
 | Service restarts with OOM | `journalctl -u homelib | grep -i memory`; check swap is on (`swapon --show`). |
-| Nothing in "For you" | It fills after the 03:30 job or the reload button (top right of For you); needs internet. Look for `candidate` in the log. |
-| Reload says "No new suggestions" | Everything the searches found was already shown in the last 30 days. Search and watch a few new things, add starter topics in "Your algorithm", or try again tomorrow. |
+| Nothing in "For you" | It fills after the 03:30 job or "Fetch suggestions now"; needs internet. Look for `candidate` in the log. |
 
 ## Mock mode
 
