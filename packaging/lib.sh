@@ -108,7 +108,7 @@ install_app() {
   rm -rf "$PREFIX/app.old"
   [ -d "$PREFIX/app" ] && mv "$PREFIX/app" "$PREFIX/app.old"
   mv "$PREFIX/app.new" "$PREFIX/app"
-  cp "$PKG_DIR"/{update.sh,uninstall.sh,backup.sh,selfcheck.sh,lib.sh,VERSION} "$PREFIX/" 2>/dev/null || true
+  cp "$PKG_DIR"/{update.sh,uninstall.sh,backup.sh,selfcheck.sh,install_embeddings.sh,lib.sh,VERSION} "$PREFIX/" 2>/dev/null || true
   chmod 755 "$PREFIX"/*.sh
 }
 

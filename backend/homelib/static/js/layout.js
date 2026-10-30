@@ -7,6 +7,7 @@ export const TABS = [
   ['search', 'Search', 'search'],
   ['foryou', 'For you', 'sparkle'],
   ['library', 'Library', 'library'],
+  ['subs', 'Subs', 'bell'],
   ['downloads', 'Downloads', 'download'],
   ['settings', 'Settings', 'settings'],
 ];

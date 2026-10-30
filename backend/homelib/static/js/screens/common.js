@@ -1,7 +1,7 @@
 // Sheets shared by several screens: download options, "Why am I seeing this?",
 // add to playlist, delete after watching and the per-video menu.
 import { api } from '../api.js';
-import { h, put, icon, sheet, toast, fmtDuration, avatar, promptSheet, confirmSheet, skeleton } from '../ui.js';
+import { h, put, icon, sheet, toast, fmtDuration, avatar, promptSheet, confirmSheet, skeleton, pop } from '../ui.js';
 import { navigate } from '../router.js';
 import { state, profileById } from '../state.js';
 
@@ -64,6 +64,71 @@ export async function downloadSheet(video, { onDone, shared = false } = {}) {
   });
 }
 
+// ---- feedback on feed cards ------------------------------------------------------
+
+// Thumbs up / down and "Not interested" under a For you card. The rating is
+// remembered on the card object so re-renders keep it.
+export function feedActions(v, { onRemove } = {}) {
+  const row = h('div.card-actions');
+  const paint = () => {
+    const r = v.my_rating || 0;
+    const btn = (val, ic, label) => h(`button.fb-btn${r === val ? '.on' : ''}`, {
+      'aria-label': label, 'aria-pressed': String(r === val),
+      onclick: async (e) => {
+        const next = r === val ? 0 : val;
+        try {
+          await api.rateCandidate(v, next);
+          v.my_rating = next;
+          paint();
+          pop(row.querySelector(`[aria-label="${label}"]`));
+          if (next) toast(next > 0 ? 'Thanks: more like this' : 'Got it: fewer like this', 1800);
+        } catch (err) { toast(err.message); }
+        return e;
+      },
+    }, icon(ic));
+    put(row,
+      btn(1, 'like', 'Thumbs up'), btn(-1, 'dislike', 'Thumbs down'),
+      h('span.spacer'),
+      h('button.fb-btn.text', { 'aria-label': `Not interested in ${v.title}`, onclick: () => notInterested(v, onRemove) }, icon('x'), 'Not interested'));
+  };
+  paint();
+  return row;
+}
+
+export async function notInterested(v, onRemove) {
+  try {
+    await api.notInterested(v);
+    onRemove && onRemove();
+    toast('Removed. You’ll see less like this.', 2600, 'check');
+  } catch (e) { toast(e.message); }
+}
+
+// The channel name as a link to its channel page (plain text when the id is unknown).
+export function channelLink(v, cls = 'chan-link') {
+  if (!v.channel) return '';
+  if (!v.channel_id) return v.channel;
+  return h(`a.${cls}`, { href: `#/channel/${encodeURIComponent(v.channel_id)}/${encodeURIComponent(v.channel)}`, onclick: (e) => e.stopPropagation() }, v.channel);
+}
+
+export async function toggleSubscribe(v, subscribed) {
+  if (subscribed) {
+    await api.unsubscribe(v.channel_id);
+    toast(`Unsubscribed from ${v.channel}`, 2200);
+    return false;
+  }
+  await api.subscribe(v.channel_id, v.channel, v.id);
+  toast(`Subscribed to ${v.channel}. New uploads show up in Subs and For you.`, 3000, 'check');
+  return true;
+}
+
+const BREAKDOWN = [
+  ['interest_part', 'Your interests'], ['keyword_part', 'Topics & channels you boosted or watch'],
+  ['similar_part', 'Like videos you liked'], ['channel_part', 'The channel'], ['fresh_part', 'New upload'],
+  ['avoid_part', 'Like things you asked for less of'], ['jitter_part', 'Daily shuffle'],
+  // 1.4 names (still used by the Shorts feed)
+  ['familiar_part', 'Familiar (topics + channel)'], ['novelty_part', 'New to you (exploration)'],
+];
+
 export async function whySheet(item, mode) {
   const s = sheet(h('div.stack', h('h2', 'Why am I seeing this?'), skeleton('list', 2)));
   try {
@@ -77,12 +142,10 @@ export async function whySheet(item, mode) {
       h('h2', 'Why am I seeing this?'),
       h('div.muted.small.clamp2', w.video.title),
       r ? h('div.card', { style: { padding: '12px 14px' } }, r.reasons.map((t) => h('div.reason', icon('sparkle'), h('span', t)))) :
-        h('div.banner', icon('warn'), h('span', 'This video is excluded by one of your mutes.')),
+        h('div.banner', icon('warn'), h('span', `This video is blocked (${w.blocked || 'one of your blocks'}).`)),
+      w.interest ? h('div.muted.small', `Interest “${w.interest.label}”: weight ${w.interest.weight.toFixed(2)}${w.interest.manual_weight != null ? ' (set by you)' : ''}, from ${w.interest.videos} video${w.interest.videos === 1 ? '' : 's'}.`) : null,
       b ? h('div.card', { style: { padding: '4px 14px 14px' } },
-        bar('Familiar (topics + channel)', b.familiar_part),
-        bar('New to you (exploration)', b.novelty_part),
-        bar('Daily shuffle', b.jitter_part),
-        b.semantic_part !== undefined ? bar('Similar titles (embeddings)', b.semantic_part) : null,
+        BREAKDOWN.filter(([k]) => b[k] !== undefined && (b[k] !== 0 || ['interest_part', 'familiar_part'].includes(k))).map(([k, label]) => bar(label, b[k])),
         h('div.kv', { style: { marginTop: '12px', fontWeight: 700 } }, h('span', 'Score'), h('span', r.score.toFixed(3)))) : null,
       h('div.section-title', 'What the algorithm knows about these'),
       h('div.group', w.terms.map((t) => h('div.item',
@@ -90,26 +153,34 @@ export async function whySheet(item, mode) {
           h('div.muted.small', Object.entries(t.counts || {}).map(([k, n]) => `${k} ×${n}`).join(', ') || 'never seen')),
         h('span.val', (t.weight >= 0 ? '+' : '') + Number(t.weight || 0).toFixed(2))))),
       h('div.muted.small', `Memory half-life ${Math.round(w.settings.half_life_days)} days · exploration ${Math.round(w.settings.exploration * 100)}% · channel loyalty ${Math.round(w.settings.channel_loyalty * 100)}%${mode === 'both' ? ' (blended for both of you)' : ''}`),
-      h('a.btn.block', { href: '#/algorithm' }, icon('sliders'), 'Edit your algorithm'),
+      w.embedder ? h('div.muted.small', `Similarity model: ${w.embedder.label}.`) : null,
+      h('a.btn.block', { href: '#/algorithm' }, icon('sliders'), 'Edit your interests'),
     ));
   } catch (e) {
     put(s.el, h('div.grab'), h('p', `Couldn't explain: ${e.message}`));
   }
 }
 
-export function candidateMenu(item, mode, onChange) {
+export function candidateMenu(item, mode, onChange, onRemove) {
   sheet((close) => {
-    const act = (label, ic, fn, cls = '') => h(`button.menu-item${cls}`, {
-      onclick: async () => { close(); try { await fn(); onChange && onChange(); } catch (e) { toast(e.message); } },
+    const act = (label, ic, fn, cls = '', reload = true) => h(`button.menu-item${cls}`, {
+      onclick: async () => { close(); try { await fn(); if (reload && onChange) onChange(); } catch (e) { toast(e.message); } },
     }, icon(ic), label);
-    const topic = (item.keywords || [])[0];
+    const topic = item.interest || (item.keywords || [])[0];
     return h('div',
       h('h2.clamp2', { style: { marginBottom: '8px' } }, item.title),
-      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange, shared: mode === 'both' })),
-      act('Why am I seeing this?', 'info', () => whySheet(item, mode)),
-      act('Not interested', 'dislike', async () => { await api.rateCandidate(item, -1); toast('Got it. Less like this.'); }),
-      topic ? act(`More about “${topic}”`, 'bolt', async () => { await api.boost('kw', topic, 2); toast(`Boosted “${topic}”`); }) : null,
-      act(`Never show ${item.channel}`, 'mute', async () => { await api.mute('ch', item.channel, true); toast(`Muted ${item.channel}`); }, '.danger'),
+      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange, shared: mode === 'both' }), '', false),
+      act('Why am I seeing this?', 'info', () => whySheet(item, mode), '', false),
+      act('Not interested', 'x', () => notInterested(item, onRemove), '', !onRemove),
+      item.channel_id ? act(`Go to ${item.channel}`, 'chev', () => navigate(`#/channel/${encodeURIComponent(item.channel_id)}/${encodeURIComponent(item.channel)}`), '', false) : null,
+      item.channel_id ? act(`Subscribe to ${item.channel}`, 'bell', () => toggleSubscribe(item, false), '', false) : null,
+      !item.interest && topic ? act(`More about “${topic}”`, 'bolt', async () => { await api.boost('kw', topic, 2); toast(`Added “${topic}” to your interests`); }) : null,
+      item.interest && mode !== 'both' ? act(`Block the topic “${item.interest}”`, 'ban', async () => {
+        if (await confirmSheet(`Block “${item.interest}”?`, 'Videos about it won’t be suggested any more. You can undo this in Your interests.', 'Block')) {
+          await api.blockInterest(item.interest_id); toast(`Blocked “${item.interest}”`);
+        }
+      }, '.danger') : null,
+      act(`Block ${item.channel}`, 'mute', async () => { await api.mute('ch', item.channel, true); toast(`Blocked ${item.channel}`); }, '.danger'),
     );
   });
 }

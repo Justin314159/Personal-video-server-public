@@ -30,7 +30,9 @@ __hl_define("js/app.js", function (__exports, __require) {
   const { algorithmScreen } = __require("js/screens/algorithm.js");
   const { musicScreen } = __require("js/screens/music.js");
   const { shortcutScreen } = __require("js/screens/shortcut.js");
+  const { subscriptionsScreen, channelScreen } = __require("js/screens/subscriptions.js");
 // Entry point: routes, profile gate, service worker.
+
 
 
 
@@ -64,6 +66,8 @@ route('appearance', appearanceScreen);
 route('algorithm', algorithmScreen);
 route('music', musicScreen);
 route('shortcut', shortcutScreen);
+route('subs', subscriptionsScreen);
+route('channel', channelScreen);
 
 const root = document.getElementById('app');
 
@@ -92,11 +96,13 @@ async function boot() {
   }
 }
 
+let pollCount = 0;
 async function pollBadge() {
   try {
     if (state.profile) {
       const { downloads } = await api.downloads();
       setBadge('downloads', downloads.filter((d) => d.kind === 'user' && ['running', 'queued', 'paused'].includes(d.status)).length);
+      if (pollCount++ % 8 === 0) api.subscriptionsNew().then((r) => setBadge('subs', r.new_count)).catch(() => {});
     }
   } catch { /* offline */ }
   setTimeout(pollBadge, document.hidden ? 30000 : 8000);
@@ -187,6 +193,22 @@ const http = {
   foryou: (mode) => call('GET', `/api/foryou?mode=${mode}`),
   why: (id, mode) => call('GET', `/api/foryou/why/${enc(id)}?mode=${mode}`),
   refreshForyou: (mode = 'me') => call('POST', `/api/foryou/refresh?mode=${mode}`),
+  refreshStatus: () => call('GET', '/api/foryou/status'),
+  feedback: (id, value) => call('POST', `/api/videos/${enc(id)}/feedback`, { value }),
+  notInterested: (video) => call('POST', '/api/candidates/not-interested', { video: pick(video, true) }),
+  undoNotInterested: (id) => call('DELETE', `/api/not-interested/${enc(id)}`),
+  interests: () => call('GET', '/api/interests'),
+  addInterest: (label, weight) => call('POST', '/api/interests', { label, weight }),
+  updateInterest: (id, patch) => call('PATCH', `/api/interests/${id}`, patch),
+  deleteInterest: (id) => call('DELETE', `/api/interests/${id}`),
+  restoreInterest: (id) => call('POST', `/api/interests/${id}/restore`),
+  blockInterest: (id) => call('POST', `/api/interests/${id}/block`),
+  subscriptions: () => call('GET', '/api/subscriptions'),
+  subscriptionsNew: () => call('GET', '/api/subscriptions/new-count'),
+  subscribe: (channelId, channel, videoId) => call('POST', '/api/subscriptions', { channel_id: channelId || null, channel, video_id: videoId || null }),
+  unsubscribe: (channelId) => call('DELETE', `/api/subscriptions/${enc(channelId)}`),
+  markUploadsSeen: (ids) => call('POST', '/api/subscriptions/seen', { ids }),
+  channel: (channelId, name = '') => call('GET', `/api/channels/${enc(channelId)}?name=${enc(name)}`),
   shorts: () => call('GET', '/api/shorts'),
   shortSeen: (id, seconds, duration) => call('POST', `/api/shorts/${enc(id)}/seen`, { seconds, duration }),
   prefetchShorts: () => call('POST', '/api/shorts/prefetch'),
@@ -232,7 +254,7 @@ const http = {
 // Only send the metadata fields the server accepts.
 function pick(v, keepKeywords = false) {
   const out = {};
-  for (const k of ['id', 'url', 'title', 'channel', 'channel_id', 'duration', 'thumb_url', 'is_short']) {
+  for (const k of ['id', 'url', 'title', 'channel', 'channel_id', 'duration', 'thumb_url', 'is_short', 'description']) {
     if (v[k] !== undefined && v[k] !== null) out[k] = v[k];
   }
   if (keepKeywords && v.keywords) out.keywords = v.keywords;
@@ -458,6 +480,7 @@ const TABS = [
   ['search', 'Search', 'search'],
   ['foryou', 'For you', 'sparkle'],
   ['library', 'Library', 'library'],
+  ['subs', 'Subs', 'bell'],
   ['downloads', 'Downloads', 'download'],
   ['settings', 'Settings', 'settings'],
 ];
@@ -602,6 +625,10 @@ const ICONS = {
   library: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   replay: '<path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/>',
   upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
+  belloff: '<path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l2 2H8"/><path d="M10 21h4M3 3l18 18"/>',
+  ban: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+  minus: '<path d="M5 12h14"/>',
   airplay: '<path d="M6 17H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-2"/><path d="m12 15 5 6H7z" fill="currentColor"/>',
 };
 
@@ -985,7 +1012,7 @@ const searchScreen = {
 });
 __hl_define("js/screens/common.js", function (__exports, __require) {
   const { api } = __require("js/api.js");
-  const { h, put, icon, sheet, toast, fmtDuration, avatar, promptSheet, confirmSheet, skeleton } = __require("js/ui.js");
+  const { h, put, icon, sheet, toast, fmtDuration, avatar, promptSheet, confirmSheet, skeleton, pop } = __require("js/ui.js");
   const { navigate } = __require("js/router.js");
   const { state, profileById } = __require("js/state.js");
 // Sheets shared by several screens: download options, "Why am I seeing this?",
@@ -1054,6 +1081,71 @@ async function downloadSheet(video, { onDone, shared = false } = {}) {
   });
 }
 
+// ---- feedback on feed cards ------------------------------------------------------
+
+// Thumbs up / down and "Not interested" under a For you card. The rating is
+// remembered on the card object so re-renders keep it.
+function feedActions(v, { onRemove } = {}) {
+  const row = h('div.card-actions');
+  const paint = () => {
+    const r = v.my_rating || 0;
+    const btn = (val, ic, label) => h(`button.fb-btn${r === val ? '.on' : ''}`, {
+      'aria-label': label, 'aria-pressed': String(r === val),
+      onclick: async (e) => {
+        const next = r === val ? 0 : val;
+        try {
+          await api.rateCandidate(v, next);
+          v.my_rating = next;
+          paint();
+          pop(row.querySelector(`[aria-label="${label}"]`));
+          if (next) toast(next > 0 ? 'Thanks: more like this' : 'Got it: fewer like this', 1800);
+        } catch (err) { toast(err.message); }
+        return e;
+      },
+    }, icon(ic));
+    put(row,
+      btn(1, 'like', 'Thumbs up'), btn(-1, 'dislike', 'Thumbs down'),
+      h('span.spacer'),
+      h('button.fb-btn.text', { 'aria-label': `Not interested in ${v.title}`, onclick: () => notInterested(v, onRemove) }, icon('x'), 'Not interested'));
+  };
+  paint();
+  return row;
+}
+
+async function notInterested(v, onRemove) {
+  try {
+    await api.notInterested(v);
+    onRemove && onRemove();
+    toast('Removed. You’ll see less like this.', 2600, 'check');
+  } catch (e) { toast(e.message); }
+}
+
+// The channel name as a link to its channel page (plain text when the id is unknown).
+function channelLink(v, cls = 'chan-link') {
+  if (!v.channel) return '';
+  if (!v.channel_id) return v.channel;
+  return h(`a.${cls}`, { href: `#/channel/${encodeURIComponent(v.channel_id)}/${encodeURIComponent(v.channel)}`, onclick: (e) => e.stopPropagation() }, v.channel);
+}
+
+async function toggleSubscribe(v, subscribed) {
+  if (subscribed) {
+    await api.unsubscribe(v.channel_id);
+    toast(`Unsubscribed from ${v.channel}`, 2200);
+    return false;
+  }
+  await api.subscribe(v.channel_id, v.channel, v.id);
+  toast(`Subscribed to ${v.channel}. New uploads show up in Subs and For you.`, 3000, 'check');
+  return true;
+}
+
+const BREAKDOWN = [
+  ['interest_part', 'Your interests'], ['keyword_part', 'Topics & channels you boosted or watch'],
+  ['similar_part', 'Like videos you liked'], ['channel_part', 'The channel'], ['fresh_part', 'New upload'],
+  ['avoid_part', 'Like things you asked for less of'], ['jitter_part', 'Daily shuffle'],
+  // 1.4 names (still used by the Shorts feed)
+  ['familiar_part', 'Familiar (topics + channel)'], ['novelty_part', 'New to you (exploration)'],
+];
+
 async function whySheet(item, mode) {
   const s = sheet(h('div.stack', h('h2', 'Why am I seeing this?'), skeleton('list', 2)));
   try {
@@ -1067,12 +1159,10 @@ async function whySheet(item, mode) {
       h('h2', 'Why am I seeing this?'),
       h('div.muted.small.clamp2', w.video.title),
       r ? h('div.card', { style: { padding: '12px 14px' } }, r.reasons.map((t) => h('div.reason', icon('sparkle'), h('span', t)))) :
-        h('div.banner', icon('warn'), h('span', 'This video is excluded by one of your mutes.')),
+        h('div.banner', icon('warn'), h('span', `This video is blocked (${w.blocked || 'one of your blocks'}).`)),
+      w.interest ? h('div.muted.small', `Interest “${w.interest.label}”: weight ${w.interest.weight.toFixed(2)}${w.interest.manual_weight != null ? ' (set by you)' : ''}, from ${w.interest.videos} video${w.interest.videos === 1 ? '' : 's'}.`) : null,
       b ? h('div.card', { style: { padding: '4px 14px 14px' } },
-        bar('Familiar (topics + channel)', b.familiar_part),
-        bar('New to you (exploration)', b.novelty_part),
-        bar('Daily shuffle', b.jitter_part),
-        b.semantic_part !== undefined ? bar('Similar titles (embeddings)', b.semantic_part) : null,
+        BREAKDOWN.filter(([k]) => b[k] !== undefined && (b[k] !== 0 || ['interest_part', 'familiar_part'].includes(k))).map(([k, label]) => bar(label, b[k])),
         h('div.kv', { style: { marginTop: '12px', fontWeight: 700 } }, h('span', 'Score'), h('span', r.score.toFixed(3)))) : null,
       h('div.section-title', 'What the algorithm knows about these'),
       h('div.group', w.terms.map((t) => h('div.item',
@@ -1080,26 +1170,34 @@ async function whySheet(item, mode) {
           h('div.muted.small', Object.entries(t.counts || {}).map(([k, n]) => `${k} ×${n}`).join(', ') || 'never seen')),
         h('span.val', (t.weight >= 0 ? '+' : '') + Number(t.weight || 0).toFixed(2))))),
       h('div.muted.small', `Memory half-life ${Math.round(w.settings.half_life_days)} days · exploration ${Math.round(w.settings.exploration * 100)}% · channel loyalty ${Math.round(w.settings.channel_loyalty * 100)}%${mode === 'both' ? ' (blended for both of you)' : ''}`),
-      h('a.btn.block', { href: '#/algorithm' }, icon('sliders'), 'Edit your algorithm'),
+      w.embedder ? h('div.muted.small', `Similarity model: ${w.embedder.label}.`) : null,
+      h('a.btn.block', { href: '#/algorithm' }, icon('sliders'), 'Edit your interests'),
     ));
   } catch (e) {
     put(s.el, h('div.grab'), h('p', `Couldn't explain: ${e.message}`));
   }
 }
 
-function candidateMenu(item, mode, onChange) {
+function candidateMenu(item, mode, onChange, onRemove) {
   sheet((close) => {
-    const act = (label, ic, fn, cls = '') => h(`button.menu-item${cls}`, {
-      onclick: async () => { close(); try { await fn(); onChange && onChange(); } catch (e) { toast(e.message); } },
+    const act = (label, ic, fn, cls = '', reload = true) => h(`button.menu-item${cls}`, {
+      onclick: async () => { close(); try { await fn(); if (reload && onChange) onChange(); } catch (e) { toast(e.message); } },
     }, icon(ic), label);
-    const topic = (item.keywords || [])[0];
+    const topic = item.interest || (item.keywords || [])[0];
     return h('div',
       h('h2.clamp2', { style: { marginBottom: '8px' } }, item.title),
-      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange, shared: mode === 'both' })),
-      act('Why am I seeing this?', 'info', () => whySheet(item, mode)),
-      act('Not interested', 'dislike', async () => { await api.rateCandidate(item, -1); toast('Got it. Less like this.'); }),
-      topic ? act(`More about “${topic}”`, 'bolt', async () => { await api.boost('kw', topic, 2); toast(`Boosted “${topic}”`); }) : null,
-      act(`Never show ${item.channel}`, 'mute', async () => { await api.mute('ch', item.channel, true); toast(`Muted ${item.channel}`); }, '.danger'),
+      act('Download…', 'download', () => downloadSheet(item, { onDone: onChange, shared: mode === 'both' }), '', false),
+      act('Why am I seeing this?', 'info', () => whySheet(item, mode), '', false),
+      act('Not interested', 'x', () => notInterested(item, onRemove), '', !onRemove),
+      item.channel_id ? act(`Go to ${item.channel}`, 'chev', () => navigate(`#/channel/${encodeURIComponent(item.channel_id)}/${encodeURIComponent(item.channel)}`), '', false) : null,
+      item.channel_id ? act(`Subscribe to ${item.channel}`, 'bell', () => toggleSubscribe(item, false), '', false) : null,
+      !item.interest && topic ? act(`More about “${topic}”`, 'bolt', async () => { await api.boost('kw', topic, 2); toast(`Added “${topic}” to your interests`); }) : null,
+      item.interest && mode !== 'both' ? act(`Block the topic “${item.interest}”`, 'ban', async () => {
+        if (await confirmSheet(`Block “${item.interest}”?`, 'Videos about it won’t be suggested any more. You can undo this in Your interests.', 'Block')) {
+          await api.blockInterest(item.interest_id); toast(`Blocked “${item.interest}”`);
+        }
+      }, '.danger') : null,
+      act(`Block ${item.channel}`, 'mute', async () => { await api.mute('ch', item.channel, true); toast(`Blocked ${item.channel}`); }, '.danger'),
     );
   });
 }
@@ -1274,14 +1372,14 @@ function videoMenu(video, { onChange, extra = [] } = {}) {
   });
 }
 
-  Object.assign(__exports, { downloadSheet, whySheet, candidateMenu, newPlaylistSheet, addToPlaylistSheet, deleteStatusRow, deleteSection, deleteSheet, videoMenu });
+  Object.assign(__exports, { downloadSheet, feedActions, notInterested, channelLink, toggleSubscribe, whySheet, candidateMenu, newPlaylistSheet, addToPlaylistSheet, deleteStatusRow, deleteSection, deleteSheet, videoMenu });
 });
 __hl_define("js/screens/foryou.js", function (__exports, __require) {
   const { api } = __require("js/api.js");
   const { h, put, icon, thumbEl, seg, fmtViews, emptyState, toast, skeleton, errorState, pullToRefresh, fmtDuration, watchInfo } = __require("js/ui.js");
   const { screen, topbar, nav } = __require("js/layout.js");
   const { state } = __require("js/state.js");
-  const { downloadSheet, whySheet, candidateMenu, videoMenu } = __require("js/screens/common.js");
+  const { downloadSheet, whySheet, candidateMenu, videoMenu, feedActions, channelLink } = __require("js/screens/common.js");
 
 
 
@@ -1292,12 +1390,24 @@ let mode = 'me';
 let stopPtr = null;
 
 // Reload: set aside everything the feed is showing and fetch a fresh batch.
+// The server does it in the background; if it takes long, poll until done.
 async function reloadFeed(btn, load) {
   btn.disabled = true;
   btn.classList.add('spin');
   try {
     const r = await api.refreshForyou(mode);
-    toast(r.suggestions ? `${r.suggestions} new suggestion${r.suggestions === 1 ? '' : 's'}` : 'No new suggestions right now. Try again later.', 2600, r.suggestions ? 'check' : null);
+    if (r.running) {
+      toast('Reloading in the background. The feed updates when it’s done.', 3200);
+      for (let i = 0; i < 120; i++) {
+        await new Promise((ok) => setTimeout(ok, 3000));
+        if (!btn.isConnected) return;
+        const st = await api.refreshStatus().catch(() => ({ running: false }));
+        if (!st.running) break;
+      }
+      toast('Feed reloaded', 2200, 'check');
+    } else {
+      toast(r.suggestions ? `${r.suggestions} new suggestion${r.suggestions === 1 ? '' : 's'}` : 'No new suggestions right now. Try again later.', 2600, r.suggestions ? 'check' : null);
+    }
   } catch (err) { toast(err.message); }
   btn.disabled = false;
   btn.classList.remove('spin');
@@ -1321,16 +1431,22 @@ const foryouScreen = {
             h('button.btn', { onclick: (e) => reloadFeed(e.currentTarget, load) }, icon('refresh'), 'Fetch suggestions now')));
           return;
         }
-        put(list, ...fy.items.map((v) => h('article.vitem',
-          h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load, shared: mode === 'both' }), 'aria-label': `Download ${v.title}` }, thumbEl(v)),
-          h('div.meta',
-            h('div.grow',
-              h('div.title.clamp2', v.title),
-              h('div.sub', [v.channel, fmtViews(v.view_count)].filter(Boolean).join(' · ')),
-              h('button.reason', { style: { background: 'none', border: 0, padding: 0, textAlign: 'left', minHeight: '28px' }, onclick: () => whySheet(v, mode) },
-                icon('sparkle'), h('span', v.reasons[0])),
-            ),
-            h('button.icon-btn', { 'aria-label': 'More options', onclick: () => candidateMenu(v, mode, load) }, icon('more'))))));
+        const card = (v) => {
+          const el = h('article.vitem',
+            h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load, shared: mode === 'both' }), 'aria-label': `Download ${v.title}` },
+              thumbEl(v, { badge: v.new_upload ? 'NEW' : undefined })),
+            h('div.meta',
+              h('div.grow',
+                h('div.title.clamp2', v.title),
+                h('div.sub', channelLink(v), [fmtViews(v.view_count)].filter(Boolean).map((x) => ` · ${x}`)),
+                h('button.reason', { style: { background: 'none', border: 0, padding: 0, textAlign: 'left', minHeight: '28px' }, onclick: () => whySheet(v, mode) },
+                  icon(v.new_upload ? 'bell' : 'sparkle'), h('span', v.reasons[0])),
+              ),
+              h('button.icon-btn', { 'aria-label': 'More options', onclick: () => candidateMenu(v, mode, load, () => el.remove()) }, icon('more'))),
+            feedActions(v, { onRemove: () => el.remove() }));
+          return el;
+        };
+        put(list, ...fy.items.map(card));
       } catch (e) {
         put(list, errorState(e, load));
       }
@@ -2021,7 +2137,7 @@ __hl_define("js/screens/player.js", function (__exports, __require) {
   const { state } = __require("js/state.js");
   const { navigate, back } = __require("js/router.js");
   const { pauseMusic, claimMediaSession } = __require("js/musicplayer.js");
-  const { addToPlaylistSheet, deleteSection, deleteSheet } = __require("js/screens/common.js");
+  const { addToPlaylistSheet, deleteSection, deleteSheet, channelLink, toggleSubscribe } = __require("js/screens/common.js");
 // Video player with our own controls:
 //   * drag-and-release scrubbing with a time bubble
 //   * YouTube-style double-tap skip (keep tapping to add 10 s each time)
@@ -2029,7 +2145,7 @@ __hl_define("js/screens/player.js", function (__exports, __require) {
 //   * audio-only mode, picture-in-picture, lock-screen controls (Media Session)
 //   * keeps playing with the screen locked: when Safari pauses the <video>, the
 //     same stream carries on through an <audio> element (see docs/IOS_PLAYBACK.md)
-//   * end card: delete after watching + up next / playlist autoplay
+//   * end card: more / less like this + delete after watching + up next / playlist autoplay
 // Playlist videos load in place (same <video> element), so the next one can
 // start even while the phone is locked.
 
@@ -2678,7 +2794,7 @@ function buildPlayer(root, first, listId) {
   function renderInfo() {
     put(infoBox, 
       h('div', h('h1.video-title', v.title),
-        h('div.muted.small.meta', [v.channel, fmtDuration(v.duration), v.quality === 'best' ? 'Best quality' : 'Compatible 1080p'].filter(Boolean).join(' · '))),
+        h('div.muted.small.meta', channelLink(v), [fmtDuration(v.duration), v.quality === 'best' ? 'Best quality' : 'Compatible 1080p'].filter(Boolean).map((x) => ` · ${x}`))),
       v.needs_vlc ? h('div.banner', { style: { marginTop: '12px' } }, icon('warn'), h('div.grow', h('div', `Encoded as ${(v.vcodec || '').split('.')[0].toUpperCase()}. If Safari won’t play it, use VLC.`),
         h('a.btn', { href: vlcUrl(), style: { marginTop: '8px' } }, 'Open in VLC'))) : null);
   }
@@ -2704,6 +2820,11 @@ function buildPlayer(root, first, listId) {
           renderActions(); pop(actions.children[2]);
         } catch (e) { toast(e.message); }
       }, watched),
+      v.channel_id ? chip(v.subscribed ? 'Subscribed' : 'Subscribe', v.subscribed ? 'bell' : 'bell', async (e) => {
+        const el = e.currentTarget;
+        try { v = { ...v, subscribed: await toggleSubscribe(v, v.subscribed) }; renderActions(); pop(actions.querySelector('[data-sub]')); } catch (err) { toast(err.message); }
+        return el;
+      }, !!v.subscribed, { 'data-sub': '1' }) : null,
       chip('Save', 'listadd', () => addToPlaylistSheet(v)),
       chip('Captions', 'cc', () => captionsSheet()),
       chip('Transcript', 'text', () => openTranscript(true), !!extraBox.firstChild),
@@ -2789,6 +2910,7 @@ function buildPlayer(root, first, listId) {
     const ring = h('span.count-num', String(left));
     endSheet = sheet((close) => h('div.stack',
       h('div.row', icon('checkcircle', 'done-icon'), h('h2.grow', 'Finished')),
+      moreLessRow(),
       deleteSection(v, { finished: true, onDeleted: () => { close(); afterDeleted(); } }),
       nxt ? h('div.next-card',
         h('div', { style: { width: '120px', flex: 'none' } }, thumbEl(nxt)),
@@ -2805,6 +2927,27 @@ function buildPlayer(root, first, listId) {
         if (left <= 0) { clearInterval(countdown); if (endSheet) endSheet.close(); goTo(nxt); }
       }, 1000);
     }
+  }
+  // "More like this / Less like this": part of the same end card as delete.
+  function moreLessRow() {
+    const row = h('div.more-less', { role: 'group', 'aria-label': 'Teach your feed' });
+    const paint = () => {
+      const b = (val, ic, label) => h(`button.btn${v.feedback === val ? '.on' : ''}`, {
+        'aria-pressed': String(v.feedback === val),
+        onclick: async () => {
+          const next = v.feedback === val ? null : val;
+          try {
+            await api.feedback(v.id, next);
+            v = { ...v, feedback: next };
+            paint();
+            if (next) toast(next === 'more' ? 'Got it: more like this' : 'Got it: less like this', 1800, 'check');
+          } catch (e) { toast(e.message); }
+        },
+      }, icon(ic), label);
+      put(row, b('more', 'like', 'More like this'), b('less', 'dislike', 'Less like this'));
+    };
+    paint();
+    return row;
   }
   function afterDeleted() {
     sentEnded = true;
@@ -3185,17 +3328,22 @@ const appearanceScreen = {
 });
 __hl_define("js/screens/algorithm.js", function (__exports, __require) {
   const { api } = __require("js/api.js");
-  const { h, icon, seg, toast, debounce, confirmSheet, fmtAgo, emptyState, toggle } = __require("js/ui.js");
+  const { h, put, icon, seg, toast, debounce, confirmSheet, promptSheet, fmtAgo, emptyState, toggle } = __require("js/ui.js");
   const { screen, topbar, nav } = __require("js/layout.js");
   const { state } = __require("js/state.js");
-// "Your algorithm": everything the recommender knows, editable.
+// "Your algorithm": everything the recommender knows, editable. The interest
+// editor (topics learned from what you watch, plus your own), blocks, "not
+// interested", subscriptions, the sliders, keywords/channels and history.
 
 
 
 
 
 let tab = 'kw';
-const LABEL = { finish: 'Finished', like: 'Liked', dislike: 'Disliked', delete_unwatched: 'Deleted unwatched', skip: 'Skipped', search: 'Searched' };
+const LABEL = { finish: 'Finished', like: 'Liked', dislike: 'Disliked', delete_unwatched: 'Deleted unwatched', skip: 'Skipped', search: 'Searched',
+  rewatch: 'Rewatched', more: 'More like this', less: 'Less like this', not_interested: 'Not interested', subscribe: 'Subscribed',
+  watched_mostly: 'Watched most of', abandoned: 'Stopped early' };
+let blockKind = 'kw';
 
 const algorithmScreen = {
   async render(root) {
@@ -3204,7 +3352,8 @@ const algorithmScreen = {
     const sliders = h('div.group');
     const terms = h('div');
     const starters = h('div');
-    const reload = async () => { a = await api.algorithm(); renderTerms(); renderStarters(); };
+    const editor = h('div');
+    const reload = async () => { a = await api.algorithm(); renderTerms(); renderStarters(); renderEditor(); };
     const saveSettings = debounce((patch) => api.setAlgorithm(patch).then(() => toast('Saved')), 400);
 
     const slider = (key, label, min, max, step, fmt, ends, help) => {
@@ -3282,21 +3431,104 @@ const algorithmScreen = {
           h('label.field', { style: { marginTop: '8px' } }, icon('plus'), input)));
     }
 
+    // ---- the interest editor --------------------------------------------------------
+    const counts = (c) => Object.entries(c || {}).map(([k, n]) => (k === 'subscribed' ? 'from a channel you subscribe to' : `${(LABEL[k] || k).toLowerCase()} ${n}`)).join(' · ');
+    const act = async (fn, msg) => { try { await fn(); if (msg) toast(msg, 2200, 'check'); await reload(); } catch (e) { toast(e.message); } };
+
+    function interestRow(it, maxIW) {
+      const w = it.weight;
+      const step = (d) => act(() => api.updateInterest(it.id, { weight: Math.max(-5, Math.min(5, Math.round((w + d) * 2) / 2)) }));
+      const badge = it.pinned ? h('span.pill.accent', 'Pinned') : null;
+      const kind = it.kind === 'manual' ? h('span.pill', it.migrated ? 'From your keywords' : 'Added by you') : h('span.pill', 'Learned');
+      const why = it.kind === 'manual'
+        ? (it.videos ? `${it.videos} video${it.videos === 1 ? '' : 's'} match · ${counts(it.counts)}` : 'Searched for even without history')
+        : `From ${it.videos} video${it.videos === 1 ? '' : 's'}${it.counts ? ` · ${counts(it.counts)}` : ''}`;
+      return h('div.term.interest',
+        h('div.row', h('span.name.grow', it.label), badge, kind),
+        h('div.wbar', h(`div.${w >= 0 ? 'pos' : 'neg'}`, { style: { width: `${Math.min(50, (Math.abs(w) / maxIW) * 50)}%` } })),
+        h('div.muted.small', { style: { marginTop: '6px' } }, why),
+        it.examples.length ? h('div.muted.small.clamp2', `e.g. ${it.examples.slice(0, 2).join(' · ')}`) : null,
+        h('div.row.weight-row',
+          h('button.icon-btn.small', { 'aria-label': `Less ${it.label}`, onclick: () => step(-0.5) }, icon('minus')),
+          h('span.weight-val', { title: 'Weight' }, (w >= 0 ? '' : '−') + Math.abs(w).toFixed(1)),
+          h('button.icon-btn.small', { 'aria-label': `More ${it.label}`, onclick: () => step(0.5) }, icon('plus')),
+          it.manual_weight != null && it.kind === 'learned'
+            ? h('button.chip', { onclick: () => act(() => api.updateInterest(it.id, { auto: true }), 'Back to the learned weight') }, 'Auto')
+            : h('span.muted.small', it.manual_weight != null ? 'set by you' : 'learned')),
+        h('div.actions',
+          h(`button.chip${it.pinned ? '.on' : ''}`, { onclick: () => act(() => api.updateInterest(it.id, { pinned: !it.pinned }), it.pinned ? 'Unpinned' : 'Pinned: always in your feed') }, icon('pin'), it.pinned ? 'Unpin' : 'Pin'),
+          h('button.chip', { onclick: async () => {
+            const name = await promptSheet('Rename interest', { value: it.label, okLabel: 'Rename' });
+            if (name) act(() => api.updateInterest(it.id, { label: name }), 'Renamed');
+          } }, icon('edit'), 'Rename'),
+          h('button.chip', { onclick: async () => {
+            if (await confirmSheet(`Block “${it.label}”?`, 'Videos about it won’t be suggested at all. Undo below under Blocked.', 'Block')) act(() => api.blockInterest(it.id), `Blocked “${it.label}”`);
+          } }, icon('ban'), 'Block'),
+          h('button.chip', { onclick: async () => {
+            const learned = it.kind === 'learned';
+            if (await confirmSheet(`Delete “${it.label}”?`, learned ? 'The feed forgets this interest. It won’t come back from the videos it was learned from (restore it below).' : 'Your topic is removed.', 'Delete')) act(() => api.deleteInterest(it.id), 'Deleted');
+          } }, icon('trash'), 'Delete')));
+    }
+
+    function renderEditor() {
+      const maxIW = Math.max(1, ...a.interests.map((i) => Math.abs(i.weight)));
+      const topicInput = h('input', { placeholder: 'Add a topic, e.g. pottery or Roman history', 'aria-label': 'New topic', enterkeyhint: 'done', maxlength: 60 });
+      const blockInput = h('input', { placeholder: blockKind === 'ch' ? 'Channel name to block' : 'Topic to block, e.g. cooking', 'aria-label': 'Block', enterkeyhint: 'done' });
+      const blocked = [...a.blocked.topics.map((t) => ['kw', t]), ...a.blocked.channels.map((c) => ['ch', c])];
+      put(editor,
+        h('p.muted.small', 'Grouped from what you watch, like, rewatch and subscribe to. Weights grow slowly, so a couple of videos only nudge the feed, and fade over time (Memory slider). Your changes always win.'),
+        h('form', { onsubmit: (e) => { e.preventDefault(); const t = topicInput.value.trim(); if (t) act(() => api.addInterest(t), `Added “${t}”`); } },
+          h('label.field', icon('plus'), topicInput)),
+        h('div', { style: { height: '10px' } }),
+        a.interests.length ? h('div.group', a.interests.map((it) => interestRow(it, maxIW)))
+          : emptyState('sparkle', 'No interests yet', 'Watch, like or subscribe to a few things, or add a topic above.'),
+        a.hidden_interests.length ? h('details.more', h('summary.muted.small', `Deleted interests (${a.hidden_interests.length})`),
+          h('div.group', a.hidden_interests.map((it) => h('div.item', h('span.grow', it.label),
+            h('button.chip', { onclick: () => act(() => api.restoreInterest(it.id), `Restored “${it.label}”`) }, 'Restore'))))) : null,
+
+        h('div.section-title', icon('ban'), 'Blocked'),
+        h('p.muted.small', 'Never suggested, also not in “Both of us”. A blocked topic also covers videos about the same thing.'),
+        seg([['kw', 'Topic'], ['ch', 'Channel']], blockKind, (v) => { blockKind = v; renderEditor(); }),
+        h('form', { style: { marginTop: '8px' }, onsubmit: (e) => { e.preventDefault(); const t = blockInput.value.trim(); if (t) act(() => api.mute(blockKind, t, true), `Blocked ${t}`); } },
+          h('label.field', icon('ban'), blockInput)),
+        blocked.length ? h('div.group', { style: { marginTop: '10px' } }, blocked.map(([k, t]) => h('div.item',
+          h('span.grow', h('div', { style: { fontWeight: 600 } }, k === 'ch' ? t : `“${t}”`), h('div.muted.small', k === 'ch' ? 'Channel' : 'Topic')),
+          h('button.chip', { onclick: () => act(() => api.mute(k, t, false), `Unblocked ${t}`) }, 'Unblock'))))
+          : h('p.muted.small', 'Nothing blocked.'),
+
+        h('div.section-title', icon('x'), 'Not interested'),
+        a.not_interested.length ? h('div.group', a.not_interested.map((n) => h('div.item',
+          h('span.grow', h('div.clamp2', { style: { fontWeight: 600 } }, n.title || n.video_id), h('div.muted.small', [n.channel, fmtAgo(n.ts)].filter(Boolean).join(' · '))),
+          h('button.chip', { onclick: () => act(() => api.undoNotInterested(n.video_id), 'Undone') }, 'Undo'))))
+          : h('p.muted.small', 'Videos you mark “Not interested” in For you are listed here.'),
+
+        h('div.section-title', icon('bell'), 'Subscriptions', h('span.spacer'), h('a.small', { href: '#/subs', style: { textTransform: 'none', letterSpacing: 0 } }, 'Open')),
+        a.subscriptions.length ? h('div.group', a.subscriptions.map((c) => h('div.item',
+          h('a.grow', { href: `#/channel/${encodeURIComponent(c.channel_id)}/${encodeURIComponent(c.channel)}`, style: { fontWeight: 600, color: 'inherit', textDecoration: 'none' } }, c.channel),
+          h('button.chip', { onclick: () => act(() => api.unsubscribe(c.channel_id), `Unsubscribed from ${c.channel}`) }, 'Unsubscribe'))))
+          : h('p.muted.small', 'Subscribe from a video or a channel page.'),
+        h('p.muted.small', { style: { marginTop: '10px' } }, `Similarity model: ${a.embeddings.label}.`),
+      );
+    }
+
     renderTerms();
     renderStarters();
+    renderEditor();
 
-    const w = a.event_weights;
+    const w = a.signal_strengths;
     root.append(screen(
       topbar('Your algorithm', { backTo: '#/settings' }),
       h('p.muted.small', `This is everything “For you” knows about ${state.profile.name}. It lives on your server and nowhere else. “Both of us” mode blends both profiles equally.`),
       h('div.section-title', 'Controls'), sliders,
-      h('div.section-title', 'What it knows'), terms,
+      h('div.section-title', icon('sparkle'), 'Your interests'), editor,
+      h('div.section-title', 'Keywords & channels'),
+      h('p.muted.small', 'The finer, older view: single words and channels. Boosting a word adds it to your interests.'), terms,
       h('div.section-title', 'Starter topics'),
       h('p.muted.small', 'Used for exploration and when there isn’t enough history yet.'), starters,
       h('div.section-title', 'How signals count'),
       h('div.group', h('div.block.small',
         Object.entries(w).map(([k, v]) => h('div.kv', h('span', LABEL[k] || k), h('span', { style: { fontWeight: 600 } }, `${v > 0 ? '+' : ''}${v}`))),
-        h('div.muted', { style: { marginTop: '8px' } }, 'Skip = left within 2 seconds. Suggestions are fetched nightly at 03:30. Score = familiar × (1 − exploration) + newness × exploration + a small daily shuffle.'))),
+        h('div.muted', { style: { marginTop: '8px' } }, 'Explicit feedback counts more than watching. Skip = left within 2 seconds; stopped early = under 15% after two days. Subscribing counts for the channel and its topics. Suggestions are fetched every morning and when you reload; the Exploration slider sets the share of new topics in both the searches and the feed, and no interest gets more than 30% of the rest.'))),
       h('div.section-title', 'Your data'),
       h('div.stack',
         h('button.btn.block', { onclick: exportJson }, icon('export'), 'Export as JSON'),
@@ -3524,5 +3756,100 @@ const shortcutScreen = {
 };
 
   Object.assign(__exports, { shortcutScreen });
+});
+__hl_define("js/screens/subscriptions.js", function (__exports, __require) {
+  const { api } = __require("js/api.js");
+  const { h, put, icon, thumbEl, emptyState, toast, skeleton, errorState, pullToRefresh, fmtAgo, confirmSheet } = __require("js/ui.js");
+  const { screen, topbar, nav, setBadge } = __require("js/layout.js");
+  const { downloadSheet } = __require("js/screens/common.js");
+// Subscriptions: a section per subscribed channel with its latest uploads.
+// Only metadata and thumbnails are on the server; tapping a video opens the
+// usual download sheet. Uploads you haven't seen yet carry a "NEW" marker.
+
+
+
+
+
+let stopPtr = null;
+let seenTimer = null;
+
+function uploadCard(u, onDone) {
+  return h('button.vitem.sub-item', { onclick: () => { api.markUploadsSeen([u.id]).catch(() => {}); downloadSheet(u, { onDone }); }, 'aria-label': `${u.new ? 'New: ' : ''}${u.title}` },
+    thumbEl(u, { badge: u.new ? 'NEW' : undefined, watched: u.watched }),
+    h('div.title.clamp2', u.title),
+    h('div.sub', [u.upload_ts ? fmtAgo(u.upload_ts) : '', u.local_status === 'ready' ? 'Downloaded' : ''].filter(Boolean).join(' · ')));
+}
+
+const subscriptionsScreen = {
+  async render(root) {
+    nav('subs');
+    const body = h('div', skeleton('row', 3));
+    const load = async () => {
+      let data;
+      try { data = await api.subscriptions(); } catch (e) { put(body, errorState(e, load)); return; }
+      setBadge('subs', data.new_count);
+      if (!data.channels.length) {
+        put(body, emptyState('bell', 'No subscriptions yet',
+          'Tap Subscribe on a video or a channel page. New uploads show up here and in For you. Nothing is downloaded until you tap it.'));
+        return;
+      }
+      put(body, ...data.channels.map((c) => h('section.sub-channel',
+        h('div.section-title',
+          h('a', { href: `#/channel/${encodeURIComponent(c.channel_id)}/${encodeURIComponent(c.channel)}` }, c.channel),
+          c.new_count ? h('span.pill.accent', `${c.new_count} new`) : null,
+          h('span.spacer'),
+          h('button.icon-btn', { 'aria-label': `Unsubscribe from ${c.channel}`, onclick: async () => {
+            if (await confirmSheet(`Unsubscribe from ${c.channel}?`, 'Its uploads leave this tab and your feed. Downloaded videos stay.', 'Unsubscribe')) {
+              try { await api.unsubscribe(c.channel_id); toast(`Unsubscribed from ${c.channel}`); load(); } catch (e) { toast(e.message); }
+            }
+          } }, icon('belloff'))),
+        c.uploads.length
+          ? h('div.hscroll', { role: 'list' }, c.uploads.map((u) => h('div.sub-cell', { role: 'listitem' }, uploadCard(u, load))))
+          : h('div.card.muted.small', { style: { padding: '14px' } },
+            c.check_ok === false ? 'Couldn’t check this channel last time. It’s retried on the next reload.' : 'Checking for uploads on the next reload…'))));
+      // The markers stay for this visit; next time they're gone.
+      const ids = data.channels.flatMap((c) => c.uploads.filter((u) => u.new).map((u) => u.id));
+      clearTimeout(seenTimer);
+      if (ids.length) seenTimer = setTimeout(() => api.markUploadsSeen(ids).then(() => setBadge('subs', 0)).catch(() => {}), 2500);
+    };
+    root.append(screen(
+      topbar('Subscriptions'),
+      h('p.muted.small', 'Checked every morning and whenever you reload For you. Only titles and thumbnails are stored; videos download when you tap them.'),
+      body));
+    stopPtr = pullToRefresh(load);
+    await load();
+  },
+  unmount() { if (stopPtr) stopPtr(); stopPtr = null; },
+};
+
+const channelScreen = {
+  async render(root, arg) {
+    nav('subs');
+    const [cid, ...rest] = (arg || '').split('/');
+    let name = rest.join('/');
+    const head = h('div');
+    const list = h('div.vlist.grid', skeleton('grid', 3));
+    root.append(screen(topbar(name || 'Channel', { backTo: '#/subs' }), head, list));
+    let ch;
+    try { ch = await api.channel(cid, name); } catch (e) { put(list, errorState(e, () => channelScreen.render(root, arg))); return; }
+    name = ch.channel;
+    root.querySelector('.topbar h1').textContent = name;
+    const paintHead = () => put(head, h('div.row', { style: { gap: '10px', margin: '4px 0 12px' } },
+      h(`button.btn${ch.subscribed ? '' : '.primary'}`, { onclick: async () => {
+        try {
+          if (ch.subscribed) { await api.unsubscribe(cid); toast(`Unsubscribed from ${name}`); } else {
+            await api.subscribe(cid, name); toast(`Subscribed to ${name}`, 2400, 'check');
+          }
+          ch.subscribed = !ch.subscribed;
+          paintHead();
+        } catch (e) { toast(e.message); }
+      } }, icon(ch.subscribed ? 'belloff' : 'bell'), ch.subscribed ? 'Unsubscribe' : 'Subscribe'),
+      h('span.muted.small', ch.subscribed ? 'New uploads appear in Subs and For you.' : 'Latest uploads')));
+    paintHead();
+    put(list, ...(ch.videos.length ? ch.videos.map((u) => h('article.vitem', uploadCard(u, null))) : [emptyState('film', 'No uploads found', 'YouTube didn’t list any videos for this channel.')]));
+  },
+};
+
+  Object.assign(__exports, { uploadCard, subscriptionsScreen, channelScreen });
 });
 __hl_require("js/app.js");

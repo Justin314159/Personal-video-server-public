@@ -75,6 +75,14 @@ def _entry_to_result(e: dict) -> dict | None:
     if not re.match(r"https?://(www\.|m\.|music\.)?youtube\.com/", url):
         url = f"https://www.youtube.com/watch?v={vid}"
     dur = e.get("duration")
+    ts = e.get("timestamp") or e.get("release_timestamp")
+    if not ts and e.get("upload_date"):
+        try:
+            import datetime as dt
+
+            ts = dt.datetime.strptime(e["upload_date"], "%Y%m%d").replace(tzinfo=dt.timezone.utc).timestamp()
+        except ValueError:
+            ts = None
     return {
         "id": vid,
         "title": e.get("title") or "",
@@ -85,7 +93,13 @@ def _entry_to_result(e: dict) -> dict | None:
         "thumb_url": thumb_url_for(vid),
         "is_short": is_short(url, dur),
         "view_count": e.get("view_count"),
+        "description": (e.get("description") or "")[:300],
+        "upload_ts": float(ts) if ts else None,
     }
+
+
+# Ask yt-dlp for the "3 days ago" upload dates on search and channel results.
+APPROX_DATES = {"youtubetab": {"approximate_date": [""]}}
 
 
 class _YtLogger:
@@ -146,13 +160,38 @@ class YouTube:
         import yt_dlp
 
         q = f"{query} #shorts" if shorts else query
-        opts = self._base_opts() | {"extract_flat": "in_playlist", "skip_download": True}
+        opts = self._base_opts() | {"extract_flat": "in_playlist", "skip_download": True,
+                                    "extractor_args": APPROX_DATES}
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(f"ytsearch{int(n)}:{q}", download=False)
         out = []
         for e in info.get("entries") or []:
             r = _entry_to_result(e or {})
             if r and (not shorts or r["is_short"]):
+                out.append(r)
+        return out
+
+    def channel_uploads(self, channel_id: str, n: int = 15, channel: str = "") -> list[dict]:
+        """A channel's latest uploads, newest first: flat extraction of its
+        Videos tab (metadata only, nothing is downloaded)."""
+        if self.mock:
+            return mock.channel_uploads(channel_id, n, channel)
+        import yt_dlp
+
+        if not re.fullmatch(r"UC[A-Za-z0-9_-]{22}", channel_id or ""):
+            raise ValueError(f"not a channel id: {channel_id!r}")
+        opts = self._base_opts() | {"extract_flat": "in_playlist", "skip_download": True, "playlistend": int(n),
+                                    "extractor_args": APPROX_DATES}
+        opts.pop("noplaylist", None)
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/channel/{channel_id}/videos", download=False)
+        out = []
+        for e in (info.get("entries") or [])[:n]:
+            e = dict(e or {})
+            e.setdefault("channel", info.get("channel") or info.get("uploader") or channel)
+            e.setdefault("channel_id", channel_id)
+            r = _entry_to_result(e)
+            if r and e.get("live_status") not in ("is_upcoming", "is_live"):
                 out.append(r)
         return out
 

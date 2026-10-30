@@ -79,7 +79,7 @@ h1, h2, h3 { margin: 0; line-height: 1.2; }
 
 .nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   height: calc(var(--nav-h) + var(--safe-bottom)); padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
   background: color-mix(in srgb, var(--surface) 94%, transparent);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -628,3 +628,31 @@ svg.done-icon { width: 26px; height: 26px; color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ---------- 1.5: feedback, subscriptions, interest editor ---------- */
+.card-actions { display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.card-actions .spacer { flex: 1; }
+.fb-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 40px; height: 36px; padding: 0 8px; border-radius: 18px; border: 0;
+  background: transparent; color: var(--muted); font-size: 0.765rem; font-weight: 600;
+}
+.fb-btn svg { width: 18px; height: 18px; }
+.fb-btn.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.fb-btn.text { padding: 0 10px; }
+.chan-link { color: inherit; text-decoration: none; }
+.chan-link:active { color: var(--accent); }
+.more-less { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.more-less .btn.on { border-color: var(--accent); color: var(--accent); }
+.sub-cell { flex: none; width: 216px; scroll-snap-align: start; }
+.sub-item .title { font-weight: 600; font-size: 0.88rem; line-height: 1.3; margin-top: var(--s2); }
+.sub-item .sub { color: var(--muted); font-size: 0.76rem; margin-top: 2px; }
+.sub-channel .section-title a { color: inherit; text-decoration: none; }
+.sub-channel .section-title .icon-btn { width: 36px; height: 36px; min-width: 36px; color: var(--muted); }
+.term.interest .pill { margin-left: 6px; }
+.weight-row { gap: 6px; margin-top: 8px; }
+.icon-btn.small { width: 36px; height: 36px; min-width: 36px; border: 1px solid var(--border); background: var(--surface); }
+.icon-btn.small svg { width: 18px; height: 18px; }
+.weight-val { min-width: 34px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+details.more { margin-top: 10px; }
+details.more summary { min-height: 36px; display: flex; align-items: center; cursor: pointer; }

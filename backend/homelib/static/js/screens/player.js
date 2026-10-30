@@ -5,7 +5,7 @@
 //   * audio-only mode, picture-in-picture, lock-screen controls (Media Session)
 //   * keeps playing with the screen locked: when Safari pauses the <video>, the
 //     same stream carries on through an <audio> element (see docs/IOS_PLAYBACK.md)
-//   * end card: delete after watching + up next / playlist autoplay
+//   * end card: more / less like this + delete after watching + up next / playlist autoplay
 // Playlist videos load in place (same <video> element), so the next one can
 // start even while the phone is locked.
 import { api } from '../api.js';
@@ -14,7 +14,7 @@ import { screen, nav } from '../layout.js';
 import { state } from '../state.js';
 import { navigate, back } from '../router.js';
 import { pauseMusic, claimMediaSession } from '../musicplayer.js';
-import { addToPlaylistSheet, deleteSection, deleteSheet } from './common.js';
+import { addToPlaylistSheet, deleteSection, deleteSheet, channelLink, toggleSubscribe } from './common.js';
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const SKIP = 10;
@@ -654,7 +654,7 @@ function buildPlayer(root, first, listId) {
   function renderInfo() {
     put(infoBox, 
       h('div', h('h1.video-title', v.title),
-        h('div.muted.small.meta', [v.channel, fmtDuration(v.duration), v.quality === 'best' ? 'Best quality' : 'Compatible 1080p'].filter(Boolean).join(' · '))),
+        h('div.muted.small.meta', channelLink(v), [fmtDuration(v.duration), v.quality === 'best' ? 'Best quality' : 'Compatible 1080p'].filter(Boolean).map((x) => ` · ${x}`))),
       v.needs_vlc ? h('div.banner', { style: { marginTop: '12px' } }, icon('warn'), h('div.grow', h('div', `Encoded as ${(v.vcodec || '').split('.')[0].toUpperCase()}. If Safari won’t play it, use VLC.`),
         h('a.btn', { href: vlcUrl(), style: { marginTop: '8px' } }, 'Open in VLC'))) : null);
   }
@@ -680,6 +680,11 @@ function buildPlayer(root, first, listId) {
           renderActions(); pop(actions.children[2]);
         } catch (e) { toast(e.message); }
       }, watched),
+      v.channel_id ? chip(v.subscribed ? 'Subscribed' : 'Subscribe', v.subscribed ? 'bell' : 'bell', async (e) => {
+        const el = e.currentTarget;
+        try { v = { ...v, subscribed: await toggleSubscribe(v, v.subscribed) }; renderActions(); pop(actions.querySelector('[data-sub]')); } catch (err) { toast(err.message); }
+        return el;
+      }, !!v.subscribed, { 'data-sub': '1' }) : null,
       chip('Save', 'listadd', () => addToPlaylistSheet(v)),
       chip('Captions', 'cc', () => captionsSheet()),
       chip('Transcript', 'text', () => openTranscript(true), !!extraBox.firstChild),
@@ -765,6 +770,7 @@ function buildPlayer(root, first, listId) {
     const ring = h('span.count-num', String(left));
     endSheet = sheet((close) => h('div.stack',
       h('div.row', icon('checkcircle', 'done-icon'), h('h2.grow', 'Finished')),
+      moreLessRow(),
       deleteSection(v, { finished: true, onDeleted: () => { close(); afterDeleted(); } }),
       nxt ? h('div.next-card',
         h('div', { style: { width: '120px', flex: 'none' } }, thumbEl(nxt)),
@@ -781,6 +787,27 @@ function buildPlayer(root, first, listId) {
         if (left <= 0) { clearInterval(countdown); if (endSheet) endSheet.close(); goTo(nxt); }
       }, 1000);
     }
+  }
+  // "More like this / Less like this": part of the same end card as delete.
+  function moreLessRow() {
+    const row = h('div.more-less', { role: 'group', 'aria-label': 'Teach your feed' });
+    const paint = () => {
+      const b = (val, ic, label) => h(`button.btn${v.feedback === val ? '.on' : ''}`, {
+        'aria-pressed': String(v.feedback === val),
+        onclick: async () => {
+          const next = v.feedback === val ? null : val;
+          try {
+            await api.feedback(v.id, next);
+            v = { ...v, feedback: next };
+            paint();
+            if (next) toast(next === 'more' ? 'Got it: more like this' : 'Got it: less like this', 1800, 'check');
+          } catch (e) { toast(e.message); }
+        },
+      }, icon(ic), label);
+      put(row, b('more', 'like', 'More like this'), b('less', 'dislike', 'Less like this'));
+    };
+    paint();
+    return row;
   }
   function afterDeleted() {
     sentEnded = true;

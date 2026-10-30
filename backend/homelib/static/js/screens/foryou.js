@@ -2,18 +2,30 @@ import { api } from '../api.js';
 import { h, put, icon, thumbEl, seg, fmtViews, emptyState, toast, skeleton, errorState, pullToRefresh, fmtDuration, watchInfo } from '../ui.js';
 import { screen, topbar, nav } from '../layout.js';
 import { state } from '../state.js';
-import { downloadSheet, whySheet, candidateMenu, videoMenu } from './common.js';
+import { downloadSheet, whySheet, candidateMenu, videoMenu, feedActions, channelLink } from './common.js';
 
 let mode = 'me';
 let stopPtr = null;
 
 // Reload: set aside everything the feed is showing and fetch a fresh batch.
+// The server does it in the background; if it takes long, poll until done.
 async function reloadFeed(btn, load) {
   btn.disabled = true;
   btn.classList.add('spin');
   try {
     const r = await api.refreshForyou(mode);
-    toast(r.suggestions ? `${r.suggestions} new suggestion${r.suggestions === 1 ? '' : 's'}` : 'No new suggestions right now. Try again later.', 2600, r.suggestions ? 'check' : null);
+    if (r.running) {
+      toast('Reloading in the background. The feed updates when it’s done.', 3200);
+      for (let i = 0; i < 120; i++) {
+        await new Promise((ok) => setTimeout(ok, 3000));
+        if (!btn.isConnected) return;
+        const st = await api.refreshStatus().catch(() => ({ running: false }));
+        if (!st.running) break;
+      }
+      toast('Feed reloaded', 2200, 'check');
+    } else {
+      toast(r.suggestions ? `${r.suggestions} new suggestion${r.suggestions === 1 ? '' : 's'}` : 'No new suggestions right now. Try again later.', 2600, r.suggestions ? 'check' : null);
+    }
   } catch (err) { toast(err.message); }
   btn.disabled = false;
   btn.classList.remove('spin');
@@ -37,16 +49,22 @@ export const foryouScreen = {
             h('button.btn', { onclick: (e) => reloadFeed(e.currentTarget, load) }, icon('refresh'), 'Fetch suggestions now')));
           return;
         }
-        put(list, ...fy.items.map((v) => h('article.vitem',
-          h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load, shared: mode === 'both' }), 'aria-label': `Download ${v.title}` }, thumbEl(v)),
-          h('div.meta',
-            h('div.grow',
-              h('div.title.clamp2', v.title),
-              h('div.sub', [v.channel, fmtViews(v.view_count)].filter(Boolean).join(' · ')),
-              h('button.reason', { style: { background: 'none', border: 0, padding: 0, textAlign: 'left', minHeight: '28px' }, onclick: () => whySheet(v, mode) },
-                icon('sparkle'), h('span', v.reasons[0])),
-            ),
-            h('button.icon-btn', { 'aria-label': 'More options', onclick: () => candidateMenu(v, mode, load) }, icon('more'))))));
+        const card = (v) => {
+          const el = h('article.vitem',
+            h('button.vitem', { onclick: () => downloadSheet(v, { onDone: load, shared: mode === 'both' }), 'aria-label': `Download ${v.title}` },
+              thumbEl(v, { badge: v.new_upload ? 'NEW' : undefined })),
+            h('div.meta',
+              h('div.grow',
+                h('div.title.clamp2', v.title),
+                h('div.sub', channelLink(v), [fmtViews(v.view_count)].filter(Boolean).map((x) => ` · ${x}`)),
+                h('button.reason', { style: { background: 'none', border: 0, padding: 0, textAlign: 'left', minHeight: '28px' }, onclick: () => whySheet(v, mode) },
+                  icon(v.new_upload ? 'bell' : 'sparkle'), h('span', v.reasons[0])),
+              ),
+              h('button.icon-btn', { 'aria-label': 'More options', onclick: () => candidateMenu(v, mode, load, () => el.remove()) }, icon('more'))),
+            feedActions(v, { onRemove: () => el.remove() }));
+          return el;
+        };
+        put(list, ...fy.items.map(card));
       } catch (e) {
         put(list, errorState(e, load));
       }

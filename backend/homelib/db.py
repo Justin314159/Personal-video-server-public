@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS videos (
     url           TEXT NOT NULL DEFAULT '',
     thumb_url     TEXT NOT NULL DEFAULT '',
     keywords      TEXT NOT NULL DEFAULT '[]', -- JSON list, used by the recommender
+    description   TEXT NOT NULL DEFAULT '',   -- search snippet (recommender)
     is_short      INTEGER NOT NULL DEFAULT 0,
     media         TEXT NOT NULL DEFAULT 'video', -- 'video' | 'audio' (music)
     width         INTEGER,
@@ -95,6 +96,7 @@ CREATE TABLE IF NOT EXISTS events (
     profile_id  INTEGER,
     video_id    TEXT,
     type        TEXT NOT NULL,   -- finish|like|dislike|delete_unwatched|skip|search|deleted
+                                 -- 1.5: rewatch|more|less|not_interested|subscribe
     weight      REAL NOT NULL DEFAULT 0,
     keywords    TEXT NOT NULL DEFAULT '[]',
     channel     TEXT NOT NULL DEFAULT '',
@@ -166,6 +168,82 @@ CREATE TABLE IF NOT EXISTS delete_votes (
     PRIMARY KEY (video_id, profile_id)
 );
 
+-- 1.5.0 recommender ---------------------------------------------------------
+
+-- Sentence embeddings (L2-normalised float32), per model. key is a video id,
+-- or 't:<sha1>' for a short text (a typed topic, a search), or
+-- 'block:<profile>:<mute key>' for a blocked interest's centroid.
+CREATE TABLE IF NOT EXISTS embeddings (
+    key         TEXT NOT NULL,
+    model       TEXT NOT NULL,
+    vec         BLOB NOT NULL,
+    created_at  REAL NOT NULL,
+    PRIMARY KEY (key, model)
+);
+
+-- Interest clusters per profile: learned from history, or added by hand.
+-- Keyword boosts from 1.4 became 'manual' interests.
+CREATE TABLE IF NOT EXISTS interests (
+    id            INTEGER PRIMARY KEY,
+    profile_id    INTEGER NOT NULL,
+    kind          TEXT NOT NULL,              -- 'learned' | 'manual'
+    label         TEXT NOT NULL,
+    renamed       INTEGER NOT NULL DEFAULT 0, -- label set by the user (learned)
+    model         TEXT,
+    centroid      BLOB,
+    evidence      REAL NOT NULL DEFAULT 0,    -- decayed signal behind it
+    manual_weight REAL,                       -- set by the user: wins over the learned weight
+    pinned        INTEGER NOT NULL DEFAULT 0,
+    hidden        INTEGER NOT NULL DEFAULT 0, -- a deleted learned interest (kept so it stays gone)
+    seeds         TEXT NOT NULL DEFAULT '[]', -- search phrases (manual topics)
+    members       TEXT NOT NULL DEFAULT '[]', -- item keys, strongest first
+    stats         TEXT NOT NULL DEFAULT '{}', -- counts per signal, example titles, keywords
+    created_at    REAL NOT NULL,
+    updated_at    REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS interests_profile ON interests(profile_id);
+
+-- Channel subscriptions per profile.
+CREATE TABLE IF NOT EXISTS subscriptions (
+    profile_id   INTEGER NOT NULL,
+    channel_id   TEXT NOT NULL,
+    channel      TEXT NOT NULL,
+    created_at   REAL NOT NULL,
+    PRIMARY KEY (profile_id, channel_id)
+);
+
+-- Latest uploads of subscribed channels: metadata only (never downloaded).
+CREATE TABLE IF NOT EXISTS channel_uploads (
+    channel_id   TEXT NOT NULL,
+    video_id     TEXT NOT NULL,
+    meta         TEXT NOT NULL,              -- JSON: title, channel, duration, url, thumb_url, ...
+    upload_ts    REAL,                       -- when YouTube says it was published (approximate)
+    first_seen   REAL NOT NULL,
+    PRIMARY KEY (channel_id, video_id)
+);
+CREATE TABLE IF NOT EXISTS channel_checks (
+    channel_id   TEXT PRIMARY KEY,
+    checked_at   REAL NOT NULL,
+    ok           INTEGER NOT NULL,
+    error        TEXT
+);
+-- Uploads a profile has already seen in the Subscriptions tab (the "new" marker).
+CREATE TABLE IF NOT EXISTS upload_seen (
+    profile_id   INTEGER NOT NULL,
+    video_id     TEXT NOT NULL,
+    ts           REAL NOT NULL,
+    PRIMARY KEY (profile_id, video_id)
+);
+
+-- yt-dlp search results, so the same search isn't repeated within a few hours.
+CREATE TABLE IF NOT EXISTS search_cache (
+    query        TEXT NOT NULL,
+    kind         TEXT NOT NULL,              -- 'search:<n>' | 'shorts:<n>' | 'channel:<n>'
+    results      TEXT NOT NULL,
+    fetched_at   REAL NOT NULL,
+    PRIMARY KEY (query, kind)
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     scope  TEXT NOT NULL,     -- 'global' or 'profile:<id>'
     key    TEXT NOT NULL,
@@ -201,6 +279,8 @@ def _migrate(c: sqlite3.Connection) -> None:
     p_cols = {r[1] for r in c.execute("PRAGMA table_info(profiles)")}
     if "avatar_at" not in p_cols:  # profile photos (1.4.0)
         c.execute("ALTER TABLE profiles ADD COLUMN avatar_at REAL")
+    if "description" not in cols:  # snippet for the recommender's embeddings (1.5.0)
+        c.execute("ALTER TABLE videos ADD COLUMN description TEXT NOT NULL DEFAULT ''")
 
 
 def conn() -> sqlite3.Connection:
