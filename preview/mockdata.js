@@ -11,6 +11,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://5RT_aKimWyO",
    "is_short": false,
    "view_count": 2226680,
+   "description": "Sourdough starter from scratch: day by day. A video by Crumb & Crust.",
+   "upload_ts": 1659104000,
    "keywords": [
     "sourdough",
     "starter",
@@ -27,6 +29,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://VuFGxskcX67",
    "is_short": false,
    "view_count": 2571195,
+   "description": "Open crumb sourdough without a mixer. A video by Crumb & Crust.",
+   "upload_ts": 1620310400,
    "keywords": [
     "open",
     "crumb",
@@ -44,6 +48,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Jp93NrbQm7C",
    "is_short": false,
    "view_count": 33131,
+   "description": "The easiest focaccia you will ever bake. A video by Crumb & Crust.",
+   "upload_ts": 1737555200,
    "keywords": [
     "easiest",
     "focaccia",
@@ -60,6 +66,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://zQtijYODijn",
    "is_short": false,
    "view_count": 2725658,
+   "description": "Why your sourdough is dense (and how to fix it). A video by Crumb & Crust.",
+   "upload_ts": 1775225600,
    "keywords": [
     "sourdough",
     "dense",
@@ -76,6 +84,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://YVopFB2edfn",
    "is_short": false,
    "view_count": 1833918,
+   "description": "Bagels at home: boiling, baking, the works. A video by Crumb & Crust.",
+   "upload_ts": 1707142400,
    "keywords": [
     "bagels",
     "home",
@@ -94,6 +104,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://e_4xgowU9RQ",
    "is_short": false,
    "view_count": 2078480,
+   "description": "Whole wheat sourdough that actually rises. A video by Crumb & Crust.",
+   "upload_ts": 1679321600,
    "keywords": [
     "whole",
     "wheat",
@@ -112,6 +124,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://LZPcMAZJaEY",
    "is_short": false,
    "view_count": 1403950,
+   "description": "Cinnamon rolls the night before. A video by Crumb & Crust.",
+   "upload_ts": 1561472000,
    "keywords": [
     "cinnamon",
     "rolls",
@@ -128,6 +142,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://0MtYzuIFP0x",
    "is_short": false,
    "view_count": 1543577,
+   "description": "Pizza dough: 24h vs 72h cold ferment. A video by Crumb & Crust.",
+   "upload_ts": 1698588800,
    "keywords": [
     "pizza",
     "dough",
@@ -147,6 +163,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://FTP5bfb8rjV",
    "is_short": false,
    "view_count": 1709190,
+   "description": "Knife skills every home cook needs. A video by Knife & Fire.",
+   "upload_ts": 1633356800,
    "keywords": [
     "knife",
     "skills",
@@ -165,6 +183,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://hOdZFbvFCuN",
    "is_short": false,
    "view_count": 1532584,
+   "description": "Smash burgers on a cast iron pan. A video by Knife & Fire.",
+   "upload_ts": 1502288000,
    "keywords": [
     "smash",
     "burgers",
@@ -183,6 +203,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Kf1b3gs47wv",
    "is_short": false,
    "view_count": 2981609,
+   "description": "Weeknight ramen in 30 minutes. A video by Knife & Fire.",
+   "upload_ts": 1583158400,
    "keywords": [
     "weeknight",
     "ramen",
@@ -199,6 +221,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://CEmXt-EXrg6",
    "is_short": false,
    "view_count": 1621891,
+   "description": "Cast iron care myths, tested. A video by Knife & Fire.",
+   "upload_ts": 1593353600,
    "keywords": [
     "cast",
     "iron",
@@ -217,6 +241,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://kMc7VG6GOUL",
    "is_short": false,
    "view_count": 845128,
+   "description": "Perfect fried rice: the restaurant trick. A video by Knife & Fire.",
+   "upload_ts": 1523110400,
    "keywords": [
     "perfect",
     "fried",
@@ -235,6 +261,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://xEpKOo2-HpY",
    "is_short": false,
    "view_count": 801620,
+   "description": "Five pasta sauces from one pantry. A video by Knife & Fire.",
+   "upload_ts": 1778249600,
    "keywords": [
     "five",
     "pasta",
@@ -252,6 +280,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://C2yBkRXvhV7",
    "is_short": false,
    "view_count": 1202188,
+   "description": "Dumplings from scratch with the family. A video by Knife & Fire.",
+   "upload_ts": 1670768000,
    "keywords": [
     "dumplings",
     "scratch",
@@ -268,6 +298,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://bm-XgnrPLg7",
    "is_short": false,
    "view_count": 1357982,
+   "description": "Crispy roast potatoes, three ways. A video by Knife & Fire.",
+   "upload_ts": 1547302400,
    "keywords": [
     "crispy",
     "roast",
@@ -285,6 +317,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://OYrCIHo9AWn",
    "is_short": false,
    "view_count": 2960557,
+   "description": "Building a walnut coffee table. A video by Sawdust Sunday.",
+   "upload_ts": 1592835200,
    "keywords": [
     "building",
     "walnut",
@@ -302,6 +336,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://tnhDtQ_-gEL",
    "is_short": false,
    "view_count": 1920069,
+   "description": "Hand tool woodworking for beginners. A video by Sawdust Sunday.",
+   "upload_ts": 1593872000,
    "keywords": [
     "hand",
     "tool",
@@ -319,6 +355,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://JZjziXYhgHi",
    "is_short": false,
    "view_count": 2469196,
+   "description": "Dovetails by hand: slow and steady. A video by Sawdust Sunday.",
+   "upload_ts": 1490710400,
    "keywords": [
     "dovetails",
     "hand",
@@ -336,6 +374,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://pCiH0Ef-caq",
    "is_short": false,
    "view_count": 2723336,
+   "description": "Workbench build on a budget. A video by Sawdust Sunday.",
+   "upload_ts": 1594044800,
    "keywords": [
     "workbench",
     "build",
@@ -352,6 +392,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://67Trm46Pa3I",
    "is_short": false,
    "view_count": 2644311,
+   "description": "Sharpening chisels to a mirror finish. A video by Sawdust Sunday.",
+   "upload_ts": 1679235200,
    "keywords": [
     "sharpening",
     "chisels",
@@ -369,6 +411,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://24WvBoZLACi",
    "is_short": false,
    "view_count": 2672329,
+   "description": "Live edge shelf with hidden brackets. A video by Sawdust Sunday.",
+   "upload_ts": 1481120000,
    "keywords": [
     "edge",
     "shelf",
@@ -386,6 +430,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://rQvESlV_7C_",
    "is_short": false,
    "view_count": 2610260,
+   "description": "Japanese joinery without nails. A video by Sawdust Sunday.",
+   "upload_ts": 1649859200,
    "keywords": [
     "japanese",
     "joinery",
@@ -402,6 +448,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://McqaUjRiuNt",
    "is_short": false,
    "view_count": 2973865,
+   "description": "Restoring a rusty hand plane. A video by Sawdust Sunday.",
+   "upload_ts": 1687529600,
    "keywords": [
     "restoring",
     "rusty",
@@ -419,6 +467,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://UmCVNhEhBM6",
    "is_short": false,
    "view_count": 146214,
+   "description": "Riding the slowest train in Japan. A video by Slow Rail Japan.",
+   "upload_ts": 1545228800,
    "keywords": [
     "riding",
     "slowest",
@@ -436,6 +486,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://tdcAyX51Zdn",
    "is_short": false,
    "view_count": 1051908,
+   "description": "48 hours in Kyoto on a budget. A video by Slow Rail Japan.",
+   "upload_ts": 1674915200,
    "keywords": [
     "hours",
     "kyoto",
@@ -452,6 +504,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://HietSdtrb8f",
    "is_short": false,
    "view_count": 663732,
+   "description": "Hokkaido in winter: snow, ramen, onsen. A video by Slow Rail Japan.",
+   "upload_ts": 1533219200,
    "keywords": [
     "hokkaido",
     "winter",
@@ -470,6 +524,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://KbKj5YAnc1Y",
    "is_short": false,
    "view_count": 1508436,
+   "description": "Tokyo capsule hotel overnight. A video by Slow Rail Japan.",
+   "upload_ts": 1603289600,
    "keywords": [
     "tokyo",
     "capsule",
@@ -487,6 +543,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://3hELmeWRJUr",
    "is_short": false,
    "view_count": 2629383,
+   "description": "Hidden temples of Nara. A video by Slow Rail Japan.",
+   "upload_ts": 1763216000,
    "keywords": [
     "hidden",
     "temples",
@@ -503,6 +561,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://QdowElTzHJy",
    "is_short": false,
    "view_count": 2831709,
+   "description": "Japan rail pass: worth it?. A video by Slow Rail Japan.",
+   "upload_ts": 1615990400,
    "keywords": [
     "japan",
     "rail",
@@ -520,6 +580,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://0Dc3rKiJPsk",
    "is_short": false,
    "view_count": 1112449,
+   "description": "Island hopping in the Seto Inland Sea. A video by Slow Rail Japan.",
+   "upload_ts": 1625408000,
    "keywords": [
     "island",
     "hopping",
@@ -538,6 +600,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://vPjFwhw2rIp",
    "is_short": false,
    "view_count": 1969112,
+   "description": "Osaka street food tour. A video by Slow Rail Japan.",
+   "upload_ts": 1549030400,
    "keywords": [
     "osaka",
     "street",
@@ -555,6 +619,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://reFOlnn5AKS",
    "is_short": false,
    "view_count": 211084,
+   "description": "How the James Webb telescope sees the past. A video by Orbit Notes.",
+   "upload_ts": 1620224000,
    "keywords": [
     "james",
     "webb",
@@ -573,6 +639,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://GttxKNTTlME",
    "is_short": false,
    "view_count": 2751517,
+   "description": "What is actually inside a black hole. A video by Orbit Notes.",
+   "upload_ts": 1786976000,
    "keywords": [
     "actually",
     "inside",
@@ -590,6 +658,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://azNAnZLV0Fk",
    "is_short": false,
    "view_count": 2405827,
+   "description": "Why Mars lost its atmosphere. A video by Orbit Notes.",
+   "upload_ts": 1708524800,
    "keywords": [
     "mars",
     "lost",
@@ -606,6 +676,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://8AVRJcbxQ6r",
    "is_short": false,
    "view_count": 2814122,
+   "description": "Building a backyard telescope mount. A video by Orbit Notes.",
+   "upload_ts": 1522505600,
    "keywords": [
     "building",
     "backyard",
@@ -623,6 +695,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://5jH1R-Gj4Su",
    "is_short": false,
    "view_count": 450345,
+   "description": "The strange orbit of Pluto explained. A video by Orbit Notes.",
+   "upload_ts": 1686924800,
    "keywords": [
     "strange",
     "orbit",
@@ -640,6 +714,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://6UeBJ8bm1dQ",
    "is_short": false,
    "view_count": 1434699,
+   "description": "Rocket engines: a visual guide. A video by Orbit Notes.",
+   "upload_ts": 1564323200,
    "keywords": [
     "rocket",
     "engines",
@@ -657,6 +733,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://wDjl6c4djbC",
    "is_short": false,
    "view_count": 752135,
+   "description": "Could we live on Europa?. A video by Orbit Notes.",
+   "upload_ts": 1581948800,
    "keywords": [
     "europa"
    ]
@@ -671,6 +749,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://ZyFsPNL7EqE",
    "is_short": false,
    "view_count": 2037798,
+   "description": "Astrophotography with a phone. A video by Orbit Notes.",
+   "upload_ts": 1761574400,
    "keywords": [
     "astrophotography",
     "phone"
@@ -686,6 +766,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://cO43yKKyfva",
    "is_short": false,
    "view_count": 916812,
+   "description": "Fingerstyle guitar for absolute beginners. A video by Six String Lab.",
+   "upload_ts": 1766499200,
    "keywords": [
     "fingerstyle",
     "guitar",
@@ -703,6 +785,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://qVAwHESkNTn",
    "is_short": false,
    "view_count": 1110868,
+   "description": "Ten chords, a hundred songs. A video by Six String Lab.",
+   "upload_ts": 1541600000,
    "keywords": [
     "ten",
     "chords",
@@ -720,6 +804,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://vm7sqUqKmIs",
    "is_short": false,
    "view_count": 2723645,
+   "description": "Travis picking in 15 minutes. A video by Six String Lab.",
+   "upload_ts": 1783088000,
    "keywords": [
     "travis",
     "picking",
@@ -736,6 +822,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://pssjbKb3pXS",
    "is_short": false,
    "view_count": 153279,
+   "description": "Blues guitar improvisation basics. A video by Six String Lab.",
+   "upload_ts": 1705846400,
    "keywords": [
     "blues",
     "guitar",
@@ -753,6 +841,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Poc8NFqm84B",
    "is_short": false,
    "view_count": 2982208,
+   "description": "Restringing and setting up an acoustic. A video by Six String Lab.",
+   "upload_ts": 1748441600,
    "keywords": [
     "restringing",
     "setting",
@@ -769,6 +859,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Gk2gf5G_tjD",
    "is_short": false,
    "view_count": 2742029,
+   "description": "Learn the CAGED system the easy way. A video by Six String Lab.",
+   "upload_ts": 1567260800,
    "keywords": [
     "learn",
     "caged",
@@ -786,6 +878,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://oTUwYOw0T8k",
    "is_short": false,
    "view_count": 1501727,
+   "description": "Bossa nova rhythm guitar. A video by Six String Lab.",
+   "upload_ts": 1704204800,
    "keywords": [
     "bossa",
     "nova",
@@ -803,6 +897,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://oUVUxqeOJ8x",
    "is_short": false,
    "view_count": 1521443,
+   "description": "Slide guitar in open G. A video by Six String Lab.",
+   "upload_ts": 1547216000,
    "keywords": [
     "slide",
     "guitar",
@@ -819,6 +915,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://uqrUnKe-2Wr",
    "is_short": false,
    "view_count": 2599069,
+   "description": "20 minute morning yoga flow. A video by Morning Mat.",
+   "upload_ts": 1605622400,
    "keywords": [
     "minute",
     "morning",
@@ -836,6 +934,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://ErBiGtewESM",
    "is_short": false,
    "view_count": 2861933,
+   "description": "Yoga for back pain relief. A video by Morning Mat.",
+   "upload_ts": 1555251200,
    "keywords": [
     "yoga",
     "back",
@@ -853,6 +953,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://w-OkApz3CtH",
    "is_short": false,
    "view_count": 1235210,
+   "description": "Mobility routine for desk workers. A video by Morning Mat.",
+   "upload_ts": 1642083200,
    "keywords": [
     "mobility",
     "routine",
@@ -870,6 +972,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://vzUWlw07e_4",
    "is_short": false,
    "view_count": 2585057,
+   "description": "Beginner pilates core workout. A video by Morning Mat.",
+   "upload_ts": 1675692800,
    "keywords": [
     "beginner",
     "pilates",
@@ -887,6 +991,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://qvMdtVQm7Cl",
    "is_short": false,
    "view_count": 296979,
+   "description": "Bedtime stretch to wind down. A video by Morning Mat.",
+   "upload_ts": 1625667200,
    "keywords": [
     "bedtime",
     "stretch",
@@ -903,6 +1009,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://L_a6_Cs5rMJ",
    "is_short": false,
    "view_count": 108583,
+   "description": "Hip opening yoga sequence. A video by Morning Mat.",
+   "upload_ts": 1686320000,
    "keywords": [
     "hip",
     "opening",
@@ -920,6 +1028,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://RvfwQajyhTA",
    "is_short": false,
    "view_count": 2382205,
+   "description": "Breathing techniques for stress. A video by Morning Mat.",
+   "upload_ts": 1596982400,
    "keywords": [
     "breathing",
     "techniques",
@@ -936,6 +1046,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://QiF2yHkHa0z",
    "is_short": false,
    "view_count": 1216813,
+   "description": "Full body stretch in 10 minutes. A video by Morning Mat.",
+   "upload_ts": 1574259200,
    "keywords": [
     "body",
     "stretch",
@@ -952,6 +1064,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://0P3_EFq6PTm",
    "is_short": false,
    "view_count": 634798,
+   "description": "Turning an old mini PC into a home server. A video by Homelab Hour.",
+   "upload_ts": 1483366400,
    "keywords": [
     "turning",
     "old",
@@ -970,6 +1084,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Dz83Ca4CIjY",
    "is_short": false,
    "view_count": 1584625,
+   "description": "Tailscale explained in plain English. A video by Homelab Hour.",
+   "upload_ts": 1493302400,
    "keywords": [
     "tailscale",
     "explained",
@@ -987,6 +1103,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://9AimlisRMa6",
    "is_short": false,
    "view_count": 1335331,
+   "description": "Ubuntu Server install walkthrough. A video by Homelab Hour.",
+   "upload_ts": 1598969600,
    "keywords": [
     "ubuntu",
     "server",
@@ -1004,6 +1122,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://CFUHMPww1LC",
    "is_short": false,
    "view_count": 67089,
+   "description": "Self-hosting a media library. A video by Homelab Hour.",
+   "upload_ts": 1781014400,
    "keywords": [
     "self",
     "hosting",
@@ -1021,6 +1141,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://xA6sgCL-PNa",
    "is_short": false,
    "view_count": 1634943,
+   "description": "Linux command line for beginners. A video by Homelab Hour.",
+   "upload_ts": 1751984000,
    "keywords": [
     "linux",
     "command",
@@ -1038,6 +1160,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://k_Dp4ZmBcTi",
    "is_short": false,
    "view_count": 189636,
+   "description": "Backups that actually work. A video by Homelab Hour.",
+   "upload_ts": 1605017600,
    "keywords": [
     "backups",
     "actually",
@@ -1054,6 +1178,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://oNht-n7IXSI",
    "is_short": false,
    "view_count": 1977926,
+   "description": "Quiet homelab on a budget. A video by Homelab Hour.",
+   "upload_ts": 1480947200,
    "keywords": [
     "quiet",
     "homelab",
@@ -1070,6 +1196,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://vXt-4JNWzan",
    "is_short": false,
    "view_count": 219491,
+   "description": "Docker vs bare metal for a homelab. A video by Homelab Hour.",
+   "upload_ts": 1504793600,
    "keywords": [
     "docker",
     "bare",
@@ -1087,6 +1215,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://1ZmQztYslrV",
    "is_short": false,
    "view_count": 2723019,
+   "description": "Growing tomatoes in containers. A video by Green Thumb Plot.",
+   "upload_ts": 1643811200,
    "keywords": [
     "growing",
     "tomatoes",
@@ -1103,6 +1233,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://tnFpJofGojy",
    "is_short": false,
    "view_count": 2906246,
+   "description": "Raised bed garden build. A video by Green Thumb Plot.",
+   "upload_ts": 1636726400,
    "keywords": [
     "raised",
     "bed",
@@ -1120,6 +1252,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://A_ZG5H8Xi5Y",
    "is_short": false,
    "view_count": 1164163,
+   "description": "Composting for small spaces. A video by Green Thumb Plot.",
+   "upload_ts": 1587132800,
    "keywords": [
     "composting",
     "small",
@@ -1136,6 +1270,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://7TiHhgFbC8F",
    "is_short": false,
    "view_count": 1856156,
+   "description": "Pruning fruit trees in winter. A video by Green Thumb Plot.",
+   "upload_ts": 1513779200,
    "keywords": [
     "pruning",
     "fruit",
@@ -1153,6 +1289,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://S7ZSL0HOBLd",
    "is_short": false,
    "view_count": 2568107,
+   "description": "Seed starting under lights. A video by Green Thumb Plot.",
+   "upload_ts": 1503324800,
    "keywords": [
     "seed",
     "starting",
@@ -1169,6 +1307,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://4DK5kgRhANP",
    "is_short": false,
    "view_count": 2208775,
+   "description": "Herb garden on a balcony. A video by Green Thumb Plot.",
+   "upload_ts": 1672323200,
    "keywords": [
     "herb",
     "garden",
@@ -1185,6 +1325,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://XtyPNGvau9Z",
    "is_short": false,
    "view_count": 2678448,
+   "description": "No-dig gardening one year later. A video by Green Thumb Plot.",
+   "upload_ts": 1777990400,
    "keywords": [
     "dig",
     "gardening",
@@ -1202,6 +1344,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://KJFgAd26jeB",
    "is_short": false,
    "view_count": 1105126,
+   "description": "Saving seeds from your garden. A video by Green Thumb Plot.",
+   "upload_ts": 1752156800,
    "keywords": [
     "saving",
     "seeds",
@@ -1218,6 +1362,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://j6JjT6Xxb_G",
    "is_short": false,
    "view_count": 2691178,
+   "description": "Cat tries every toy at the pet store. A video by Whisker Weekly.",
+   "upload_ts": 1691417600,
    "keywords": [
     "cat",
     "tries",
@@ -1236,6 +1382,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://3uPczetRuH9",
    "is_short": false,
    "view_count": 895222,
+   "description": "Training a cat to high five. A video by Whisker Weekly.",
+   "upload_ts": 1590675200,
    "keywords": [
     "training",
     "cat",
@@ -1253,6 +1401,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://sRu0DrDx_Q_",
    "is_short": false,
    "view_count": 724923,
+   "description": "Kitten's first week home. A video by Whisker Weekly.",
+   "upload_ts": 1584368000,
    "keywords": [
     "kitten",
     "week",
@@ -1269,6 +1419,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://F291vgKnQg-",
    "is_short": false,
    "view_count": 2015962,
+   "description": "Cat agility course at home. A video by Whisker Weekly.",
+   "upload_ts": 1587737600,
    "keywords": [
     "cat",
     "agility",
@@ -1286,6 +1438,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://CyKw1Mz2tnq",
    "is_short": false,
    "view_count": 2218249,
+   "description": "Why cats knock things off tables. A video by Whisker Weekly.",
+   "upload_ts": 1726064000,
    "keywords": [
     "cats",
     "knock",
@@ -1302,6 +1456,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://bb_4eacfWCT",
    "is_short": false,
    "view_count": 1614625,
+   "description": "Building a cat tree from scratch. A video by Whisker Weekly.",
+   "upload_ts": 1513692800,
    "keywords": [
     "building",
     "cat",
@@ -1319,6 +1475,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://6HnB82-YA7Z",
    "is_short": false,
    "view_count": 2898880,
+   "description": "Senior cat care tips. A video by Whisker Weekly.",
+   "upload_ts": 1633961600,
    "keywords": [
     "senior",
     "cat",
@@ -1336,6 +1494,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://oX8mCFdIRlg",
    "is_short": false,
    "view_count": 2336440,
+   "description": "Cat vs automatic laser. A video by Whisker Weekly.",
+   "upload_ts": 1667139200,
    "keywords": [
     "cat",
     "automatic",
@@ -1352,6 +1512,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://QQR9NJNaFvF",
    "is_short": true,
    "view_count": 3257043,
+   "description": "This sourdough trick changed everything. A video by Crumb & Crust.",
+   "upload_ts": 1562508800,
    "keywords": [
     "sourdough",
     "trick",
@@ -1369,6 +1531,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://FFp4OT9FaDB",
    "is_short": true,
    "view_count": 4079705,
+   "description": "One knife cut you need. A video by Knife & Fire.",
+   "upload_ts": 1749392000,
    "keywords": [
     "knife",
     "cut",
@@ -1385,6 +1549,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://-Vd7unH6jL5",
    "is_short": true,
    "view_count": 8303154,
+   "description": "60 second focaccia. A video by Sawdust Sunday.",
+   "upload_ts": 1598019200,
    "keywords": [
     "second",
     "focaccia"
@@ -1400,6 +1566,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://X0U8OAkTCbd",
    "is_short": true,
    "view_count": 172890,
+   "description": "Dovetail in 30 seconds. A video by Slow Rail Japan.",
+   "upload_ts": 1657808000,
    "keywords": [
     "dovetail",
     "seconds"
@@ -1415,6 +1583,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://I1GgzWhd8_v",
    "is_short": true,
    "view_count": 7299944,
+   "description": "Planer shavings so satisfying. A video by Orbit Notes.",
+   "upload_ts": 1723472000,
    "keywords": [
     "planer",
     "shavings",
@@ -1431,6 +1601,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Lcj3agON1JU",
    "is_short": true,
    "view_count": 1140552,
+   "description": "Tokyo at 5am. A video by Six String Lab.",
+   "upload_ts": 1516457600,
    "keywords": [
     "tokyo",
     "5am"
@@ -1446,6 +1618,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://ELeBavUIiq8",
    "is_short": true,
    "view_count": 8593123,
+   "description": "Shinkansen pass in slow motion. A video by Morning Mat.",
+   "upload_ts": 1629728000,
    "keywords": [
     "shinkansen",
     "pass",
@@ -1463,6 +1637,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Q1L43PjsaC1",
    "is_short": true,
    "view_count": 4424892,
+   "description": "Saturn through a backyard scope. A video by Homelab Hour.",
+   "upload_ts": 1522332800,
    "keywords": [
     "saturn",
     "backyard",
@@ -1479,6 +1655,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://LkDcpU7B-1B",
    "is_short": true,
    "view_count": 3850655,
+   "description": "Rocket launch from my roof. A video by Green Thumb Plot.",
+   "upload_ts": 1498832000,
    "keywords": [
     "rocket",
     "launch",
@@ -1495,6 +1673,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://jOCLExPgtqd",
    "is_short": true,
    "view_count": 5199748,
+   "description": "Guitar riff you can learn today. A video by Whisker Weekly.",
+   "upload_ts": 1759846400,
    "keywords": [
     "guitar",
     "riff",
@@ -1512,6 +1692,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://IttS5yktgpi",
    "is_short": true,
    "view_count": 4722877,
+   "description": "Hardest chord in 15s. A video by Crumb & Crust.",
+   "upload_ts": 1769004800,
    "keywords": [
     "hardest",
     "chord",
@@ -1528,6 +1710,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://NBCcOB5Jm0W",
    "is_short": true,
    "view_count": 7146501,
+   "description": "Two minute neck stretch. A video by Knife & Fire.",
+   "upload_ts": 1688220800,
    "keywords": [
     "minute",
     "neck",
@@ -1544,6 +1728,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://Ol2ECj2Ecgq",
    "is_short": true,
    "view_count": 232292,
+   "description": "Desk posture fix. A video by Sawdust Sunday.",
+   "upload_ts": 1767881600,
    "keywords": [
     "desk",
     "posture",
@@ -1560,6 +1746,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://S8zZFn9Opwh",
    "is_short": true,
    "view_count": 6365097,
+   "description": "Mini PC fanless setup. A video by Slow Rail Japan.",
+   "upload_ts": 1493129600,
    "keywords": [
     "mini",
     "fanless",
@@ -1576,6 +1764,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://sFyA65Mk_ST",
    "is_short": true,
    "view_count": 1944190,
+   "description": "Tailscale in 45 seconds. A video by Orbit Notes.",
+   "upload_ts": 1597932800,
    "keywords": [
     "tailscale",
     "seconds"
@@ -1591,6 +1781,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://QQ28QvFKEGU",
    "is_short": true,
    "view_count": 5387440,
+   "description": "Tomato pruning hack. A video by Six String Lab.",
+   "upload_ts": 1582726400,
    "keywords": [
     "tomato",
     "pruning",
@@ -1607,6 +1799,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://WK3ZDSsTflH",
    "is_short": true,
    "view_count": 2035351,
+   "description": "Seedlings day 1 to 30. A video by Morning Mat.",
+   "upload_ts": 1747836800,
    "keywords": [
     "seedlings"
    ]
@@ -1621,6 +1815,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://yalirjRcp1k",
    "is_short": true,
    "view_count": 2433892,
+   "description": "Cat discovers the box. A video by Homelab Hour.",
+   "upload_ts": 1663510400,
    "keywords": [
     "cat",
     "discovers",
@@ -1637,6 +1833,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://bPF4Dn-jMHm",
    "is_short": true,
    "view_count": 2566837,
+   "description": "Cat high-five success. A video by Green Thumb Plot.",
+   "upload_ts": 1516630400,
    "keywords": [
     "cat",
     "high",
@@ -1654,6 +1852,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://OysAw9K-Q2a",
    "is_short": true,
    "view_count": 6848986,
+   "description": "Kitten vs cucumber? No, vs toy mouse. A video by Whisker Weekly.",
+   "upload_ts": 1650118400,
    "keywords": [
     "kitten",
     "cucumber",
@@ -1671,6 +1871,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://MHpfu12TexP",
    "is_short": true,
    "view_count": 589057,
+   "description": "Crispy potatoes ASMR. A video by Crumb & Crust.",
+   "upload_ts": 1601648000,
    "keywords": [
     "crispy",
     "potatoes",
@@ -1687,6 +1889,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://0wglEtk10wI",
    "is_short": true,
    "view_count": 2548930,
+   "description": "Ramen egg perfection. A video by Knife & Fire.",
+   "upload_ts": 1670422400,
    "keywords": [
     "ramen",
     "egg",
@@ -1703,6 +1907,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://_nW8_KHZLKm",
    "is_short": true,
    "view_count": 3991307,
+   "description": "Japanese saw tips. A video by Sawdust Sunday.",
+   "upload_ts": 1677420800,
    "keywords": [
     "japanese",
     "saw",
@@ -1719,6 +1925,8 @@ window.HOMELIB_MOCK_DATA = {
    "thumb_url": "mock://nvntij8A8sL",
    "is_short": true,
    "view_count": 5295898,
+   "description": "Moon timelapse. A video by Slow Rail Japan.",
+   "upload_ts": 1789049600,
    "keywords": [
     "moon",
     "timelapse"
@@ -1735,7 +1943,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=6PXboO8AEYK",
    "thumb_url": "mock://6PXboO8AEYK",
    "is_short": false,
-   "view_count": 590514
+   "view_count": 590514,
+   "description": "Harbour Lights. A video by The Night Ferries.",
+   "upload_ts": 1550153600
   },
   {
    "id": "TOVihU7Dzfb",
@@ -1746,7 +1956,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=TOVihU7Dzfb",
    "thumb_url": "mock://TOVihU7Dzfb",
    "is_short": false,
-   "view_count": 3999480
+   "view_count": 3999480,
+   "description": "Lantern Season. A video by The Night Ferries.",
+   "upload_ts": 1593872000
   },
   {
    "id": "gmkr_BmFrzi",
@@ -1757,7 +1969,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=gmkr_BmFrzi",
    "thumb_url": "mock://gmkr_BmFrzi",
    "is_short": false,
-   "view_count": 588345
+   "view_count": 588345,
+   "description": "Paper Moons. A video by Mara Okafor.",
+   "upload_ts": 1578579200
   },
   {
    "id": "49FsMGLUUcV",
@@ -1768,7 +1982,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=49FsMGLUUcV",
    "thumb_url": "mock://49FsMGLUUcV",
    "is_short": false,
-   "view_count": 794191
+   "view_count": 794191,
+   "description": "Slow Bloom. A video by Mara Okafor.",
+   "upload_ts": 1756390400
   },
   {
    "id": "vOVewJYUuNx",
@@ -1779,7 +1995,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=vOVewJYUuNx",
    "thumb_url": "mock://vOVewJYUuNx",
    "is_short": false,
-   "view_count": 314638
+   "view_count": 314638,
+   "description": "Kitchen Radio. A video by Mara Okafor.",
+   "upload_ts": 1656771200
   },
   {
    "id": "OyTksTSCNFu",
@@ -1790,7 +2008,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=OyTksTSCNFu",
    "thumb_url": "mock://OyTksTSCNFu",
    "is_short": false,
-   "view_count": 11874
+   "view_count": 11874,
+   "description": "Saltwater Hymn. A video by Lowtide Choir.",
+   "upload_ts": 1608387200
   },
   {
    "id": "XodVpvAvzHb",
@@ -1801,7 +2021,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=XodVpvAvzHb",
    "thumb_url": "mock://XodVpvAvzHb",
    "is_short": false,
-   "view_count": 3835426
+   "view_count": 3835426,
+   "description": "Weather Vane. A video by Lowtide Choir.",
+   "upload_ts": 1540736000
   },
   {
    "id": "n0H8paB-yRk",
@@ -1812,7 +2034,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=n0H8paB-yRk",
    "thumb_url": "mock://n0H8paB-yRk",
    "is_short": false,
-   "view_count": 733280
+   "view_count": 733280,
+   "description": "Cabin Fever. A video by Juno & the Pines.",
+   "upload_ts": 1675347200
   },
   {
    "id": "l8zGWlsu2gC",
@@ -1823,7 +2047,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=l8zGWlsu2gC",
    "thumb_url": "mock://l8zGWlsu2gC",
    "is_short": false,
-   "view_count": 2595843
+   "view_count": 2595843,
+   "description": "Firewood. A video by Juno & the Pines.",
+   "upload_ts": 1534601600
   },
   {
    "id": "dfElJPrHDfe",
@@ -1834,7 +2060,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=dfElJPrHDfe",
    "thumb_url": "mock://dfElJPrHDfe",
    "is_short": false,
-   "view_count": 1046067
+   "view_count": 1046067,
+   "description": "North Road. A video by Juno & the Pines.",
+   "upload_ts": 1605622400
   },
   {
    "id": "KgWBssnohxd",
@@ -1845,7 +2073,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=KgWBssnohxd",
    "thumb_url": "mock://KgWBssnohxd",
    "is_short": false,
-   "view_count": 89374
+   "view_count": 89374,
+   "description": "Late Train (Lo-fi Mix). A video by DJ Kettle.",
+   "upload_ts": 1534688000
   },
   {
    "id": "hLOuietn2qX",
@@ -1856,7 +2086,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=hLOuietn2qX",
    "thumb_url": "mock://hLOuietn2qX",
    "is_short": false,
-   "view_count": 2658035
+   "view_count": 2658035,
+   "description": "Rainy Window Beats. A video by DJ Kettle.",
+   "upload_ts": 1594908800
   },
   {
    "id": "D-MOBl-TglW",
@@ -1867,7 +2099,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=D-MOBl-TglW",
    "thumb_url": "mock://D-MOBl-TglW",
    "is_short": false,
-   "view_count": 3940832
+   "view_count": 3940832,
+   "description": "Study Hall. A video by DJ Kettle.",
+   "upload_ts": 1518876800
   },
   {
    "id": "JVI50bEW1c2",
@@ -1878,7 +2112,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=JVI50bEW1c2",
    "thumb_url": "mock://JVI50bEW1c2",
    "is_short": false,
-   "view_count": 581577
+   "view_count": 581577,
+   "description": "Copper Sky. A video by Ines Varga.",
+   "upload_ts": 1505744000
   },
   {
    "id": "Nsz_8vcSYH4",
@@ -1889,7 +2125,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=Nsz_8vcSYH4",
    "thumb_url": "mock://Nsz_8vcSYH4",
    "is_short": false,
-   "view_count": 2705699
+   "view_count": 2705699,
+   "description": "Electric Garden. A video by Ines Varga.",
+   "upload_ts": 1610374400
   },
   {
    "id": "4HtyH6_65Vm",
@@ -1900,7 +2138,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=4HtyH6_65Vm",
    "thumb_url": "mock://4HtyH6_65Vm",
    "is_short": false,
-   "view_count": 144884
+   "view_count": 144884,
+   "description": "Sunday Parade. A video by Brass Weather.",
+   "upload_ts": 1622124800
   },
   {
    "id": "dTPe9WmOmdh",
@@ -1911,7 +2151,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=dTPe9WmOmdh",
    "thumb_url": "mock://dTPe9WmOmdh",
    "is_short": false,
-   "view_count": 203814
+   "view_count": 203814,
+   "description": "Second Line Rain. A video by Brass Weather.",
+   "upload_ts": 1536588800
   },
   {
    "id": "YR5rjLllVZN",
@@ -1922,7 +2164,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=YR5rjLllVZN",
    "thumb_url": "mock://YR5rjLllVZN",
    "is_short": false,
-   "view_count": 2770636
+   "view_count": 2770636,
+   "description": "Acoustic Mornings. A video by Theo Lark.",
+   "upload_ts": 1647440000
   },
   {
    "id": "r6OqF8SWh4x",
@@ -1933,7 +2177,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=r6OqF8SWh4x",
    "thumb_url": "mock://r6OqF8SWh4x",
    "is_short": false,
-   "view_count": 2494908
+   "view_count": 2494908,
+   "description": "Fingerpicked Lullaby. A video by Theo Lark.",
+   "upload_ts": 1674742400
   },
   {
    "id": "z3fkaHo1p8X",
@@ -1944,7 +2190,9 @@ window.HOMELIB_MOCK_DATA = {
    "url": "https://music.youtube.com/watch?v=z3fkaHo1p8X",
    "thumb_url": "mock://z3fkaHo1p8X",
    "is_short": false,
-   "view_count": 2901499
+   "view_count": 2901499,
+   "description": "Open G Waltz. A video by Theo Lark.",
+   "upload_ts": 1544105600
   }
  ]
 };

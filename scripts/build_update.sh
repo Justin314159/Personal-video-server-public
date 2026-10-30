@@ -16,8 +16,9 @@ rm -rf "$STAGE" "$OUT/homelib-update.zip"
 mkdir -p "$STAGE/requires"
 cp -r "$FULL/app" "$FULL/docs" "$FULL/VERSION" "$STAGE/"
 [ -d "$FULL/updates" ] && cp -r "$FULL/updates" "$STAGE/"
+[ -d "$FULL/embeddings-pins" ] && cp -r "$FULL/embeddings-pins" "$STAGE/"
 # install.sh and run.sh need the wheels, so they're full-package only.
-cp "$FULL"/{update.sh,uninstall.sh,backup.sh,selfcheck.sh,lib.sh,config.example.toml} "$STAGE/"
+cp "$FULL"/{update.sh,uninstall.sh,backup.sh,selfcheck.sh,install_embeddings.sh,lib.sh,config.example.toml} "$STAGE/"
 cp "$FULL"/wheels/constraints-cp*.txt "$STAGE/requires/"
 chmod 755 "$STAGE"/*.sh
 ( cd "$STAGE" && find . -type f ! -name MANIFEST.sha256 | sed 's|^\./||' | LC_ALL=C sort | xargs sha256sum > MANIFEST.sha256 )

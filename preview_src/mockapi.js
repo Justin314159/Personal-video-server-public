@@ -10,8 +10,15 @@ const AU = 'au_';
 const ytid = (id) => (id.startsWith(AU) ? id.slice(AU.length) : id);
 const KEY = 'hl.demo.v4';
 const HOUR = 3600, DAY = 86400;
-const WEIGHTS = { finish: 1, like: 1.5, dislike: -2, delete_unwatched: -1, skip: -1, search: 0.2 };
-const LABELS = { finish: 'finished', like: 'liked', dislike: 'disliked', delete_unwatched: 'deleted unwatched', skip: 'skipped', search: 'searched' };
+const WEIGHTS = { finish: 1, like: 1.5, dislike: -2, delete_unwatched: -1, skip: -1, search: 0.2, rewatch: 1.5, more: 2.5, less: -2.5, not_interested: -3, subscribe: 2 };
+const LABELS = { finish: 'finished', like: 'liked', dislike: 'disliked', delete_unwatched: 'deleted unwatched', skip: 'skipped', search: 'searched',
+  rewatch: 'rewatched', more: 'asked for more', less: 'asked for less', not_interested: 'not interested' };
+const SIGNALS = { finish: 1, rewatch: 1.5, watched_mostly: 0.5, skip: -0.6, abandoned: -0.4, delete_unwatched: -0.8, like: 2, dislike: -2, more: 2.5, less: -2.5, not_interested: -3, search: 0.3 };
+// The demo's stand-in for interest clusters: each mock channel is one topic.
+const CHANNEL_TOPIC = { 'Crumb & Crust': 'Baking', 'Knife & Fire': 'Cooking', 'Sawdust Sunday': 'Woodworking', 'Slow Rail Japan': 'Travel',
+  'Orbit Notes': 'Space science', 'Six String Lab': 'Music lessons', 'Morning Mat': 'Fitness & yoga', 'Homelab Hour': 'Computers & tech',
+  'Green Thumb Plot': 'Gardening', 'Whisker Weekly': 'Pets & animals' };
+const MAX_SHARE = 0.3;
 const STOP = new Set('a about after all also an and any are as at be been but by can could did do does for from get got had has have how i if in into is it its just me more my no not now of on one or our out over really so some than that the their them then there these they this those to too up us very was we were what when where which while who why will with you your video videos official full new best top part episode shorts short watch ft feat 4k hd make made making day days time way thing things like vs every'.split(' '));
 const PRESETS = {
   midnight: { scheme: 'dark', bg: '#0F1115', surface: '#181B21', border: '#2A2F39', text: '#F2F3F5', muted: '#A3A9B5', progress: null, accent: null },
@@ -22,7 +29,7 @@ const PRESETS = {
 };
 const SHARED_KEYS = ['accent', 'progress'];
 const DEFAULT_ALGO = { half_life_days: 30, exploration: 0.2, channel_loyalty: 0.4, boosts: {}, mutes: [], forgotten: [],
-  starter_topics: ['home cooking', 'woodworking', 'japan travel', 'space science', 'guitar lessons'], include_shorts_in_feed: false };
+  starter_topics: ['woodworking', 'japan travel', 'space science', 'guitar lessons'], include_shorts_in_feed: false };
 
 const now = () => Date.now() / 1000;
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -47,6 +54,68 @@ function mediaFor(v) {
   return v.is_short ? `media/vertical-${n}.mp4` : `media/landscape-${n}.mp4`;
 }
 function pub(v) { return { id: v.id, title: v.title, channel: v.channel, channel_id: v.channel_id, duration: v.duration, url: v.url, thumb_url: v.thumb_url, is_short: v.is_short, view_count: v.view_count, keywords: v.keywords }; }
+
+// ---------------------------------------------------------------- interests & subscriptions (simplified 1.5)
+function ext() {
+  if (!S.ix) {
+    S.ix = { 1: {}, 2: {} };            // per profile: label -> { weight, pinned, renamed, hidden }
+    S.subsc = { 1: [], 2: [] };         // subscriptions
+    S.upSeen = { 1: [], 2: [] };
+    const saw = CATALOG.find((v) => v.channel === 'Sawdust Sunday');
+    S.subsc[1].push({ channel_id: saw.channel_id, channel: saw.channel, created_at: now() - 20 * DAY });
+    const orbit = CATALOG.find((v) => v.channel === 'Orbit Notes');
+    S.subsc[2].push({ channel_id: orbit.channel_id, channel: orbit.channel, created_at: now() - 20 * DAY });
+  }
+  return S;
+}
+function uploadsOf(cid) {
+  return CATALOG.filter((v) => v.channel_id === cid && !v.is_short).map((v, i) => ({ ...pub(v), thumb: `thumbs/${v.id}.svg`, upload_ts: now() - (i * 2.3 + 0.4) * DAY }));
+}
+function subUploads(pid) {
+  ext();
+  const watched = S.watch[pid];
+  return S.subsc[pid].map((c) => {
+    const ups = uploadsOf(c.channel_id).map((u) => ({ ...u, new: !S.upSeen[pid].includes(u.id) && now() - u.upload_ts < 7 * DAY && !(watched[u.id] && watched[u.id].watched),
+      watched: !!(watched[u.id] && watched[u.id].watched), local_status: S.videos[u.id] ? S.videos[u.id].status : null }));
+    return { channel_id: c.channel_id, channel: c.channel, subscribed_at: c.created_at, checked_at: S.last_fetch, check_ok: true, new_count: ups.filter((u) => u.new).length, uploads: ups };
+  });
+}
+function interestsOf(pid) {
+  ext();
+  const s = algo(pid), t = now(), by = {};
+  for (const e of S.events) {
+    if (e.profile_id !== pid || !e.video_id || SIGNALS[e.type] === undefined) continue;
+    const v = BY_ID[e.video_id] || S.videos[e.video_id];
+    const label = v && CHANNEL_TOPIC[v.channel];
+    if (!label || s.forgotten.includes(`ch:${v.channel}`)) continue;
+    const it = by[label] || (by[label] = { evidence: 0, counts: {}, examples: [], channels: [v.channel] });
+    it.evidence += SIGNALS[e.type] * 0.5 ** ((t - e.ts) / DAY / s.half_life_days);
+    it.counts[e.type] = (it.counts[e.type] || 0) + 1;
+    if (!it.examples.includes(v.title) && it.examples.length < 3) it.examples.push(v.title);
+  }
+  for (const c of S.subsc[pid]) { const lab = CHANNEL_TOPIC[c.channel]; if (lab) { const it = by[lab] || (by[lab] = { evidence: 0, counts: {}, examples: [], channels: [c.channel] }); it.evidence += 2; it.counts.subscribed = 1; } }
+  const out = [];
+  let id = pid * 1000;
+  for (const [label, it] of Object.entries(by)) {
+    id += 1;
+    const ed = S.ix[pid][label] || {};
+    if (it.evidence < 0.25 && ed.weight == null) continue;
+    const auto = Math.log1p(Math.max(0, it.evidence));
+    out.push({ id, label: ed.renamed || label, key: label, kind: 'learned', weight: ed.weight != null ? ed.weight : auto, auto_weight: auto, manual_weight: ed.weight ?? null,
+      pinned: !!ed.pinned, hidden: !!ed.hidden, evidence: it.evidence, videos: Object.values(it.counts).reduce((a, b) => a + b, 0), counts: it.counts, examples: it.examples,
+      keywords: [], channels: it.channels, seeds: [], renamed: !!ed.renamed, migrated: false });
+  }
+  for (const [k, w] of Object.entries(s.boosts)) {
+    if (!k.startsWith('kw:')) continue;
+    const label = k.slice(3), ed = S.ix[pid][`m:${label}`] || {};
+    out.push({ id: pid * 1000 + 500 + hashNum(label) % 400, label, key: `m:${label}`, kind: 'manual', weight: w, auto_weight: 0, manual_weight: w, pinned: !!ed.pinned, hidden: false,
+      evidence: 0, videos: 0, counts: {}, examples: [], keywords: [], channels: [], seeds: [], renamed: false, migrated: label === 'knife' });
+  }
+  return out;
+}
+const visibleInterests = (pid) => interestsOf(pid).filter((i) => !i.hidden).sort((a, b) => (b.pinned - a.pinned) || b.weight - a.weight);
+const interestById = (pid, id) => interestsOf(pid).find((i) => i.id === Number(id));
+function topicOf(v) { return CHANNEL_TOPIC[v.channel]; }
 
 // ---------------------------------------------------------------- state
 let S = load();
@@ -358,14 +427,48 @@ function rank(pid, mode, shorts = false) {
   const { prof, s, who, ids } = context(pid, mode);
   const excluded = new Set(Object.values(S.videos).filter((v) => ['ready', 'downloading', 'queued'].includes(v.status)).map((v) => v.id));
   for (const p of ids) for (const [id, w] of Object.entries(S.watch[p])) if (w.watched || w.rating < 0) excluded.add(id);
-  for (const id of seenFor(pid, mode)) excluded.add(id);
-  const out = [];
+  const blockedTopics = new Set(ids.flatMap((p) => algo(p).mutes.filter((m) => m.startsWith('kw:')).map((m) => m.slice(3).toLowerCase())));
+  const ints = ids.map((p) => Object.fromEntries(visibleInterests(p).filter((i) => i.kind === 'learned').map((i) => [i.key, i])));
+  const subNew = shorts === true ? [] : (mode === 'both' ? [] : subUploads(pid).flatMap((c) => c.uploads.filter((u) => now() - u.upload_ts < 7 * DAY && !excluded.has(u.id))));
+  const subIds = new Set(subNew.map((u) => u.id));
+  for (const id of seenFor(pid, mode)) if (!subIds.has(id)) excluded.add(id);
+  const scored = [];
   for (const c of CATALOG) {
-    if (excluded.has(c.id) || (shorts !== null && c.is_short !== shorts)) continue;
+    if (excluded.has(c.id) || subIds.has(c.id) || (shorts !== null && c.is_short !== shorts)) continue;
+    const topic = topicOf(c);
+    if (topic && blockedTopics.has(topic.toLowerCase())) continue;
     const sc = score(c, prof, s, who);
-    if (sc) out.push({ ...pub(c), ...sc, thumb: `thumbs/${c.id}.svg` });
+    if (!sc) continue;
+    const hits = ints.map((m) => m[topic]).filter(Boolean);
+    const group = hits.length === ints.length && hits.length ? topic : hits.length && mode !== 'both' ? topic : 'explore';
+    const w = hits.reduce((a, i) => a + i.weight, 0);
+    if (group !== 'explore') {
+      sc.score += 0.3 * Math.min(1, w / 2) + (hits.some((i) => i.pinned) ? 0.2 : 0);
+      sc.reasons = [mode === 'both' && hits.length > 1 ? `You both like “${hits[0].label}”` : `Matches your interest “${hits[0].label}”${hits[0].pinned ? ' (pinned)' : ''}`, ...sc.reasons.filter((r) => !r.startsWith('Exploration')).slice(0, 1)];
+    } else if (!sc.reasons[0].startsWith('Exploration')) sc.reasons.unshift('Exploration pick: something new for you');
+    scored.push({ ...pub(c), ...sc, group, group_weight: w, interest: group !== 'explore' ? hits[0].label : null, interest_id: group !== 'explore' ? hits[0].id : null, thumb: `thumbs/${c.id}.svg` });
   }
-  return out.sort((a, b) => b.score - a.score).slice(0, 30);
+  // Feed assembly: per-interest cap, exploration share from the slider, interleaved.
+  const limit = 30, nExp = Math.round(limit * s.exploration), nInt = limit - nExp, cap = Math.ceil(MAX_SHARE * nInt);
+  const groups = {};
+  for (const x of scored.sort((a, b) => b.score - a.score)) (groups[x.group] = groups[x.group] || []).push(x);
+  const lanes = Object.entries(groups).filter(([g]) => g !== 'explore').map(([g, xs]) => xs.slice(0, cap));
+  const explore = (groups.explore || []).slice(0, nExp + Math.max(0, nInt - lanes.reduce((a, l) => a + l.length, 0)));
+  explore.forEach((x) => { x.slot = 'explore'; });
+  if (explore.length) lanes.push(explore);
+  const out = [];
+  const pass = lanes.map(() => 0), idx = lanes.map(() => 0);
+  while (out.length < limit) {
+    let best = -1;
+    lanes.forEach((l, i) => { if (idx[i] < l.length && (best < 0 || pass[i] < pass[best])) best = i; });
+    if (best < 0) break;
+    const x = lanes[best][idx[best]++];
+    x.slot = x.slot || 'interest';
+    out.push(x);
+    pass[best] += 1 / lanes[best].length;
+  }
+  subNew.slice(0, 6).forEach((u, i) => out.splice(i * 3, 0, { ...u, score: 1, slot: 'subscription', new_upload: true, reasons: [`New from ${u.channel} (you subscribe)`], breakdown: {} }));
+  return out;
 }
 
 // "Reload": what the feed shows is set aside, so the next batch is all new.
@@ -466,7 +569,85 @@ const api = {
     return delay({ tracks }, 60);
   },
   async library() { advance(); cleaner(); save(); return delay({ videos: Object.values(S.videos).filter((v) => v.status === 'ready' && !v.is_short && v.media !== 'audio' && visible(v)).sort((a, b) => b.downloaded_at - a.downloaded_at).map(decorate), auto_delete_hours: S.settings.auto_delete_hours }); },
-  async video(id) { return delay(decorate(S.videos[id] || { ...pub(BY_ID[id]), status: 'new' })); },
+  async video(id) {
+    const v = decorate(S.videos[id] || { ...pub(BY_ID[id]), status: 'new' });
+    const fb = S.events.filter((e) => e.profile_id === P() && e.video_id === id && ['more', 'less'].includes(e.type)).pop();
+    ext();
+    return delay({ ...v, feedback: fb ? fb.type : null, subscribed: S.subsc[P()].some((c) => c.channel_id === v.channel_id) });
+  },
+  async feedback(id, value) {
+    const pid = P();
+    S.events = S.events.filter((e) => !(e.profile_id === pid && e.video_id === id && ['more', 'less'].includes(e.type)));
+    if (value) addEvent(pid, value, S.videos[id] || BY_ID[id]);
+    save(); return delay({ video_id: id, feedback: value });
+  },
+  async notInterested(video) {
+    const pid = P();
+    rate(pid, video.id, -1, video);
+    S.events = S.events.filter((e) => !(e.profile_id === pid && e.video_id === video.id && ['dislike', 'like'].includes(e.type)));
+    addEvent(pid, 'not_interested', BY_ID[video.id] || video);
+    save(); return delay({ ok: true });
+  },
+  async undoNotInterested(id) {
+    const pid = P();
+    S.events = S.events.filter((e) => !(e.profile_id === pid && e.video_id === id && e.type === 'not_interested'));
+    if (S.watch[pid][id]) S.watch[pid][id].rating = 0;
+    save(); return delay({ ok: true });
+  },
+  async interests() { const a = await api.algorithm(); return a; },
+  async addInterest(label) { const s = algo(P()); s.boosts[`kw:${label.toLowerCase()}`] = 2; S.algo[P()] = s; save(); return delay({ ok: true }); },
+  async updateInterest(id, patch) {
+    const pid = P(), it = interestById(pid, id);
+    if (!it) return fail('That isn’t there any more.', 404);
+    if (it.kind === 'manual') {
+      const s = algo(pid);
+      if (patch.weight != null) s.boosts[`kw:${it.label}`] = patch.weight;
+      if (patch.label) { const w = s.boosts[`kw:${it.label}`]; delete s.boosts[`kw:${it.label}`]; s.boosts[`kw:${patch.label.toLowerCase()}`] = w; }
+      S.algo[pid] = s;
+    }
+    const key = it.kind === 'manual' ? `m:${patch.label ? patch.label.toLowerCase() : it.label}` : it.key;
+    const ed = S.ix[pid][key] = S.ix[pid][key] || {};
+    if (it.kind === 'learned') {
+      if (patch.label) ed.renamed = patch.label;
+      if (patch.auto) delete ed.weight; else if (patch.weight != null) ed.weight = patch.weight;
+    }
+    if (patch.pinned != null) ed.pinned = patch.pinned;
+    save(); return delay({ ok: true });
+  },
+  async deleteInterest(id) {
+    const pid = P(), it = interestById(pid, id);
+    if (it.kind === 'manual') { const s = algo(pid); delete s.boosts[`kw:${it.label}`]; S.algo[pid] = s; } else (S.ix[pid][it.key] = S.ix[pid][it.key] || {}).hidden = true;
+    save(); return delay({ ok: true });
+  },
+  async restoreInterest(id) { const pid = P(), it = interestById(pid, id); S.ix[pid][it.key].hidden = false; save(); return delay({ ok: true }); },
+  async blockInterest(id) {
+    const pid = P(), it = interestById(pid, id);
+    await api.mute('kw', it.label, true);
+    if (it.kind === 'learned') (S.ix[pid][it.key] = S.ix[pid][it.key] || {}).hidden = true; else { const s = algo(pid); delete s.boosts[`kw:${it.label}`]; S.algo[pid] = s; }
+    save(); return delay({ ok: true });
+  },
+  async subscriptions() { const channels = subUploads(P()); return delay({ channels, new_count: channels.reduce((a, c) => a + c.new_count, 0), last_check: S.last_fetch }, 150); },
+  async subscriptionsNew() { return delay({ new_count: subUploads(P()).reduce((a, c) => a + c.new_count, 0) }, 20); },
+  async subscribe(cid, channel, videoId) {
+    ext();
+    const v = videoId ? (BY_ID[videoId] || S.videos[videoId]) : null;
+    cid = cid || (v && v.channel_id); channel = channel || (v && v.channel);
+    if (!S.subsc[P()].some((c) => c.channel_id === cid)) {
+      S.subsc[P()].push({ channel_id: cid, channel, created_at: now() });
+      S.upSeen[P()].push(...uploadsOf(cid).map((u) => u.id));
+      addEvent(P(), 'subscribe', null, { keywords: [] });
+    }
+    save(); return delay({ channel_id: cid, channel, subscribed: true });
+  },
+  async unsubscribe(cid) { ext(); S.subsc[P()] = S.subsc[P()].filter((c) => c.channel_id !== cid); save(); return delay({ ok: true, subscribed: false }); },
+  async markUploadsSeen(ids) { ext(); S.upSeen[P()] = [...new Set([...S.upSeen[P()], ...ids])]; save(); return delay({ marked: ids.length }, 20); },
+  async channel(cid, name) {
+    ext();
+    const sub = subUploads(P()).find((c) => c.channel_id === cid);
+    const vids = sub ? sub.uploads : uploadsOf(cid);
+    return delay({ channel_id: cid, channel: name || (vids[0] && vids[0].channel) || 'Channel', subscribed: !!sub, videos: vids }, 200);
+  },
+  async refreshStatus() { return delay({ running: false }, 20); },
   async deleteVideo(id) { removeVideo(id, 'manual', P()); save(); return delay({ id, reason: 'manual' }); },
   async shareVideo(id) { const v = S.videos[id]; if (!v || !visible(v)) return fail('That isn’t on the server any more.', 404); queueAdd(id, 'shared', P()); v.audience = 'all'; save(); return delay(decorate(v)); },
   async keep(id, keep) { S.videos[id].keep = keep ? 1 : 0; save(); return delay(decorate(S.videos[id])); },
@@ -576,9 +757,11 @@ const api = {
     const { prof, s, who } = context(P(), mode);
     const v = BY_ID[id] || S.videos[id];
     const r = score(v, prof, s, who);
+    const it = r && visibleInterests(P()).find((i) => i.key === topicOf(v));
+    if (r && it) r.reasons.unshift(`Matches your interest “${it.label}”`);
     const terms = v.keywords.map((k) => ({ kind: 'kw', term: k, ...(prof.kw[k] || { weight: 0, counts: {} }) }));
     terms.push({ kind: 'ch', term: v.channel, ...(prof.ch[v.channel] || { weight: 0, counts: {} }) });
-    return delay({ video: pub(v), result: r, terms, settings: s, source: '' });
+    return delay({ video: pub(v), result: r, terms, settings: s, source: '', interest: it || null, embedder: { label: 'Built-in (preview)' } });
   },
   async refreshForyou(mode = 'me') {
     const b = bucket(P(), mode);
@@ -611,7 +794,13 @@ const api = {
     const pid = P(), s = algo(pid), prof = buildProfile(pid, s);
     const list = (d) => Object.entries(d).map(([term, e]) => ({ term, ...e })).sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight));
     const events = S.events.filter((e) => e.profile_id === pid && e.type !== 'deleted').sort((a, b) => b.ts - a.ts);
-    return delay({ settings: s, keywords: list(prof.kw), channels: list(prof.ch), events, event_weights: WEIGHTS, embeddings: { enabled: false } });
+    const all = interestsOf(pid);
+    const ni = S.events.filter((e) => e.profile_id === pid && e.type === 'not_interested').map((e) => ({ video_id: e.video_id, title: e.data.title, channel: e.channel, ts: e.ts }));
+    return delay({ settings: s, keywords: list(prof.kw), channels: list(prof.ch), events, event_weights: WEIGHTS, signal_strengths: SIGNALS,
+      interests: all.filter((i) => !i.hidden).sort((a, b) => (b.pinned - a.pinned) || b.weight - a.weight), hidden_interests: all.filter((i) => i.hidden),
+      blocked: { topics: s.mutes.filter((m) => m.startsWith('kw:')).map((m) => m.slice(3)), channels: s.mutes.filter((m) => m.startsWith('ch:')).map((m) => m.slice(3)) },
+      not_interested: ni, subscriptions: S.subsc[pid].map((c) => ({ channel_id: c.channel_id, channel: c.channel })),
+      embeddings: { model: 'builtin-v1', label: 'Built-in (preview)', loaded: true } });
   },
   async setAlgorithm(patch) { S.algo[P()] = { ...algo(P()), ...patch }; save(); return delay(S.algo[P()]); },
   async boost(kind, term, amount) {

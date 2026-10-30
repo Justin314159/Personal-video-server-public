@@ -17,6 +17,7 @@ import { appearanceScreen } from './screens/appearance.js';
 import { algorithmScreen } from './screens/algorithm.js';
 import { musicScreen } from './screens/music.js';
 import { shortcutScreen } from './screens/shortcut.js';
+import { subscriptionsScreen, channelScreen } from './screens/subscriptions.js';
 
 route('profiles', profilesScreen);
 route('search', searchScreen);
@@ -32,6 +33,8 @@ route('appearance', appearanceScreen);
 route('algorithm', algorithmScreen);
 route('music', musicScreen);
 route('shortcut', shortcutScreen);
+route('subs', subscriptionsScreen);
+route('channel', channelScreen);
 
 const root = document.getElementById('app');
 
@@ -60,11 +63,13 @@ async function boot() {
   }
 }
 
+let pollCount = 0;
 async function pollBadge() {
   try {
     if (state.profile) {
       const { downloads } = await api.downloads();
       setBadge('downloads', downloads.filter((d) => d.kind === 'user' && ['running', 'queued', 'paused'].includes(d.status)).length);
+      if (pollCount++ % 8 === 0) api.subscriptionsNew().then((r) => setBadge('subs', r.new_count)).catch(() => {});
     }
   } catch { /* offline */ }
   setTimeout(pollBadge, document.hidden ? 30000 : 8000);

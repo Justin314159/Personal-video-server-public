@@ -49,9 +49,15 @@ names = ["Profile 1", "Profile 2"]
 nightly_time = "03:30"
 # Keep at least this many unseen Shorts downloaded ahead (minimum 10).
 shorts_prefetch = 10
-# sentence-transformers similarity. NOT recommended on a 4 GB box and not
-# included in the USB package (needs `pip install sentence-transformers`).
-embeddings = false
+# Sentence embeddings for "For you" (1.5.0+): "auto" uses the MiniLM model
+# when it's installed (sudo bash /opt/homelib/install_embeddings.sh, ~250 MB
+# RAM) and a built-in light model otherwise; "builtin" never loads MiniLM.
+embedding_model = "auto"
+# yt-dlp searches per profile on each refresh, subscribed channels checked per
+# refresh, and the pause between requests (seconds).
+query_budget = 14
+channel_checks = 30
+request_delay = 1.5
 
 [tools]
 # Leave empty to auto-detect. ffmpeg: system ffmpeg first, then the bundled

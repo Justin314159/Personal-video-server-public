@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import __version__, cleaner, db, library, recommender, scheduler, subtitles
+from . import __version__, cleaner, db, embeddings, interests, library, recommender, scheduler, subscriptions, subtitles
 from .config import TAILSCALE_NET, Config, load_config
 from .downloader import DownloadManager
 from .streaming import stream_file
@@ -86,6 +86,7 @@ class DownloadBody(BaseModel):
     duration: float | None = None
     thumb_url: str | None = None
     is_short: bool | None = None
+    description: str | None = Field(default=None, max_length=2000)
     quality: Literal["best", "compat"] | None = None
     queue: Literal["personal", "shared", "none"] = "personal"
 
@@ -119,6 +120,37 @@ class OnBody(BaseModel):
 class CandidateRateBody(BaseModel):
     video: dict
     value: int = Field(ge=-1, le=1)
+
+
+class FeedbackBody(BaseModel):
+    value: Literal["more", "less"] | None = None
+
+
+class CandidateBody(BaseModel):
+    video: dict
+
+
+class InterestBody(BaseModel):
+    label: str = Field(min_length=1, max_length=60)
+    weight: float | None = Field(default=None, ge=-5, le=5)
+    pinned: bool = False
+
+
+class InterestPatchBody(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=60)
+    weight: float | None = Field(default=None, ge=-5, le=5)
+    auto: bool = False          # back to the learned weight
+    pinned: bool | None = None
+
+
+class SubscribeBody(BaseModel):
+    channel_id: str | None = None
+    channel: str | None = None
+    video_id: str | None = None  # to find the channel when the id isn't known
+
+
+class SeenIdsBody(BaseModel):
+    ids: list[str] = Field(default_factory=list, max_length=500)
 
 
 class WatchBody(BaseModel):
@@ -227,7 +259,7 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
     cfg.thumbs_dir.mkdir(parents=True, exist_ok=True)
     db.init(cfg.db_path)
     library.ensure_profiles(cfg.profile_names)
-    recommender.EMBEDDINGS_ENABLED = cfg.embeddings
+    recommender.configure(cfg)
 
     ffmpeg, ff_src = find_ffmpeg(cfg.ffmpeg_path)
     ff_dir = make_low_priority_wrappers(cfg.data_dir / "bin", ffmpeg, cfg.ffmpeg_nice) if ffmpeg else None
@@ -502,10 +534,17 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
         return {"videos": items, "auto_delete_hours": hours}
 
     @app.get("/api/videos/{vid}")
-    def get_video(vid: str):
+    def get_video(vid: str, pid: int = Depends(profile_id)):
         v = library.decorate_video(library.get_video(vid))
         v["expires_at"] = cleaner.expires_at(v, scheduler.current_auto_delete_hours(cfg))
+        v["feedback"] = library.get_feedback(pid, vid)
+        v["subscribed"] = bool(v.get("channel_id")) and v["channel_id"] in subscriptions.channel_ids(pid)
         return v
+
+    @app.post("/api/videos/{vid}/feedback")
+    def video_feedback(vid: str, body: FeedbackBody, pid: int = Depends(profile_id)):
+        """"More like this" / "Less like this" (the end-of-video prompt)."""
+        return library.feedback(pid, vid, body.value)
 
     @app.delete("/api/videos/{vid}")
     def delete_video(vid: str, pid: int = Depends(profile_id)):
@@ -538,6 +577,18 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
         if "id" not in body.video:
             raise HTTPException(400, "video.id required")
         library.rate_candidate(pid, body.video, body.value)
+        return {"ok": True}
+
+    @app.post("/api/candidates/not-interested")
+    def candidate_not_interested(body: CandidateBody, pid: int = Depends(profile_id)):
+        if "id" not in body.video:
+            raise HTTPException(400, "video.id required")
+        library.not_interested(pid, body.video)
+        return {"ok": True}
+
+    @app.delete("/api/not-interested/{vid}")
+    def undo_not_interested(vid: str, pid: int = Depends(profile_id)):
+        library.undo_not_interested(pid, vid)
         return {"ok": True}
 
     # ---- queue ---------------------------------------------------------------------
@@ -723,7 +774,7 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
             _remember_thumb(c)
         return {"mode": mode, "items": items,
                 "last_fetch": db.get_setting("global", "last_nightly", None),
-                "fetching": sched.running_job == "candidate fetch"}
+                "fetching": sched.running_job == "candidate fetch" or recommender.job_status()["running"]}
 
     @app.get("/api/foryou/why/{vid}")
     def why(vid: str, mode: Literal["me", "both"] = "me", pid: int = Depends(profile_id)):
@@ -731,7 +782,78 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
 
     @app.post("/api/foryou/refresh")
     def refresh(mode: Literal["me", "both"] = "me", pid: int = Depends(profile_id)):
+        """Runs in the background; answers when done or after ~20 s with
+        {"running": true} (the app then polls /api/foryou/status)."""
         return recommender.reload_feed(yt, pid, mode)
+
+    @app.get("/api/foryou/status")
+    def refresh_status():
+        return recommender.job_status()
+
+    # ---- subscriptions -------------------------------------------------------------
+    @app.get("/api/subscriptions")
+    def list_subscriptions(pid: int = Depends(profile_id)):
+        chans = subscriptions.uploads_for(pid)
+        for c in chans:
+            for u in c["uploads"]:
+                _remember_thumb(u)
+        return {"channels": chans, "new_count": sum(c["new_count"] for c in chans),
+                "last_check": db.get_setting("global", "last_nightly", None)}
+
+    @app.post("/api/subscriptions")
+    def subscribe(body: SubscribeBody, pid: int = Depends(profile_id)):
+        cid, name = body.channel_id or "", body.channel or ""
+        if not subscriptions.is_channel_id(cid):
+            row = db.q1("SELECT channel_id, channel FROM videos WHERE id=? AND channel_id<>''", (body.video_id or "",))
+            if row:
+                cid, name = row["channel_id"], name or row["channel"]
+            elif body.video_id:
+                try:
+                    looked = yt.lookup(body.video_id)
+                except Exception as e:
+                    raise HTTPException(502, f"YouTube lookup failed: {str(e).splitlines()[0][:150]}")
+                if looked:
+                    cid, name = looked.get("channel_id") or "", name or looked.get("channel", "")
+        sub = subscriptions.subscribe(pid, cid, name)
+        # Fetch its latest uploads now (one request), so the tab isn't empty.
+        try:
+            subscriptions.refresh(yt, [pid], budget=recommender.Budget(1), thumbs_dir=cfg.thumbs_dir)
+        except Exception as e:
+            log.info("first check of %s failed: %s", cid, e)
+        return {**sub, "subscribed": True}
+
+    @app.delete("/api/subscriptions/{channel_id}")
+    def unsubscribe(channel_id: str, pid: int = Depends(profile_id)):
+        subscriptions.unsubscribe(pid, channel_id)
+        return {"ok": True, "subscribed": False}
+
+    @app.post("/api/subscriptions/seen")
+    def subscriptions_seen(body: SeenIdsBody, pid: int = Depends(profile_id)):
+        return {"marked": subscriptions.mark_seen(pid, body.ids)}
+
+    @app.get("/api/subscriptions/new-count")
+    def subscriptions_new(pid: int = Depends(profile_id)):
+        return {"new_count": subscriptions.new_count(pid)}
+
+    @app.get("/api/channels/{channel_id}")
+    def channel_view(channel_id: str, name: str = "", pid: int = Depends(profile_id)):
+        """A channel's latest uploads (stored ones if someone subscribes, else one flat lookup)."""
+        if not subscriptions.is_channel_id(channel_id):
+            raise HTTPException(404, "unknown channel")
+        subscribed = channel_id in subscriptions.channel_ids(pid)
+        stored = subscriptions.uploads_for(pid, channel_id) if subscribed else []
+        if stored:
+            ch = stored[0]
+            return {"channel_id": channel_id, "channel": ch["channel"], "subscribed": True, "videos": ch["uploads"]}
+        try:
+            vids = recommender.cached_channel(yt, channel_id, name, 15, None, time.time() - recommender.SEARCH_TTL)
+        except Exception as e:
+            raise HTTPException(502, f"Couldn't load the channel: {str(e).splitlines()[0][:150]}")
+        for v in vids or []:
+            v["thumb"] = f"/api/thumb/{v['id']}"
+            _remember_thumb(v)
+        name = name or next((v.get("channel") for v in vids or [] if v.get("channel")), "") or channel_id
+        return {"channel_id": channel_id, "channel": name, "subscribed": subscribed, "videos": vids or []}
 
     @app.get("/api/shorts")
     def shorts(pid: int = Depends(profile_id)):
@@ -776,8 +898,48 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
         def as_list(d):
             return sorted(({"term": k, **v} for k, v in d.items()), key=lambda t: -abs(t["weight"]))
         return {"settings": s, "keywords": as_list(prof["kw"]), "channels": as_list(prof["ch"]),
-                "events": events, "event_weights": library.EVENT_WEIGHTS,
-                "embeddings": {"enabled": cfg.embeddings, "note": "Off by default; too heavy for a 4 GB box."}}
+                "events": events, "event_weights": library.EVENT_WEIGHTS, "signal_strengths": interests.SIGNALS,
+                **interest_state(pid, s), "embeddings": embeddings.status()}
+
+    def interest_state(pid: int, s: dict) -> dict:
+        rows = interests.ensure(pid, s)
+        hidden = [r for r in interests.rows(pid, include_hidden=True) if r["hidden"]]
+        return {"interests": sorted((interests.view(r) for r in rows), key=lambda r: (not r["pinned"], -r["weight"])),
+                "hidden_interests": [interests.view(r) for r in hidden],
+                "blocked": {"topics": [m[3:] for m in s["mutes"] if m.startswith("kw:")],
+                            "channels": [m[3:] for m in s["mutes"] if m.startswith("ch:")]},
+                "not_interested": library.not_interested_list(pid),
+                "subscriptions": db.q("SELECT channel_id, channel FROM subscriptions WHERE profile_id=? "
+                                      "ORDER BY channel COLLATE NOCASE", (pid,))}
+
+    # ---- the interest editor ------------------------------------------------------
+    @app.get("/api/interests")
+    def get_interests(pid: int = Depends(profile_id)):
+        s = recommender.algo_settings(pid)
+        return {**interest_state(pid, s), "embeddings": embeddings.status()}
+
+    @app.post("/api/interests")
+    def add_interest(body: InterestBody, pid: int = Depends(profile_id)):
+        w = interests.MANUAL_DEFAULT if body.weight is None else body.weight
+        return interests.add_topic(pid, body.label, w, pinned=body.pinned)
+
+    @app.patch("/api/interests/{iid}")
+    def patch_interest(iid: int, body: InterestPatchBody, pid: int = Depends(profile_id)):
+        return interests.update(pid, iid, label=body.label, weight=body.weight, auto=body.auto, pinned=body.pinned)
+
+    @app.delete("/api/interests/{iid}")
+    def delete_interest(iid: int, pid: int = Depends(profile_id)):
+        interests.delete(pid, iid)
+        return {"ok": True}
+
+    @app.post("/api/interests/{iid}/restore")
+    def restore_interest(iid: int, pid: int = Depends(profile_id)):
+        return interests.restore(pid, iid)
+
+    @app.post("/api/interests/{iid}/block")
+    def block_interest(iid: int, pid: int = Depends(profile_id)):
+        recommender.block_interest(pid, iid)
+        return {"ok": True}
 
     @app.put("/api/algorithm")
     def set_algorithm(body: AlgoBody, pid: int = Depends(profile_id)):

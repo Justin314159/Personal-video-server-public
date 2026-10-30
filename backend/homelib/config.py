@@ -50,7 +50,12 @@ class Config:
     profile_names: list[str] = field(default_factory=lambda: ["Profile 1", "Profile 2"])
     # [recommender]
     nightly_time: str = "03:30"
-    embeddings: bool = False
+    embeddings: bool = False  # 1.4's sentence-transformers switch; ignored since 1.5 (see embedding_model)
+    embedding_model: str = "auto"  # auto | minilm | builtin (see embeddings.py)
+    embed_threads: int = 1
+    query_budget: int = 14  # yt-dlp searches per profile per refresh
+    channel_checks: int = 30  # subscribed channels checked per refresh
+    request_delay: float = 1.5  # seconds between yt-dlp requests during a refresh
     shorts_prefetch: int = 10
     # [tools]
     ffmpeg_path: str = ""  # empty = auto (system ffmpeg, then imageio-ffmpeg)
@@ -117,6 +122,12 @@ def load_config(path: str | None = None) -> Config:
         c.profile_names = [str(n) for n in names[:2]]
     c.nightly_time = str(_get(raw, "recommender", "nightly_time", c.nightly_time))
     c.embeddings = bool(_get(raw, "recommender", "embeddings", False))
+    m = str(_get(raw, "recommender", "embedding_model", c.embedding_model)).strip().lower()
+    c.embedding_model = m if m in ("auto", "minilm", "builtin") else "auto"
+    c.embed_threads = max(1, min(4, int(_get(raw, "recommender", "embed_threads", c.embed_threads))))
+    c.query_budget = max(4, min(40, int(_get(raw, "recommender", "query_budget", c.query_budget))))
+    c.channel_checks = max(0, min(200, int(_get(raw, "recommender", "channel_checks", c.channel_checks))))
+    c.request_delay = max(0.0, min(30.0, float(_get(raw, "recommender", "request_delay", c.request_delay))))
     c.shorts_prefetch = max(10, int(_get(raw, "recommender", "shorts_prefetch", 10)))
     c.ffmpeg_path = str(_get(raw, "tools", "ffmpeg", ""))
     c.js_runtime_path = str(_get(raw, "tools", "js_runtime", ""))

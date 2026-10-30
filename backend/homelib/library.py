@@ -24,6 +24,16 @@ EVENT_WEIGHTS = {
     "skip": -1.0,
     "search": 0.2,
 }
+# Signals added in 1.5.0. Explicit feedback counts more than watching.
+FEEDBACK_WEIGHTS = {
+    "rewatch": 1.5,          # finished it again
+    "more": 2.5,             # "More like this"
+    "less": -2.5,            # "Less like this"
+    "not_interested": -3.0,  # "Not interested" on a feed card
+    "subscribe": 2.0,        # subscribed to the channel
+}
+ALL_WEIGHTS = {**EVENT_WEIGHTS, **FEEDBACK_WEIGHTS}
+REWATCH_GAP = 6 * 3600  # a second finish counts as a rewatch only this long after the last one
 
 WATCHED_FRACTION = 0.9  # a video counts as watched at 90% (or when it ends)
 
@@ -150,7 +160,7 @@ def upsert_video(meta: dict, added_by: int | None = None) -> dict:
         "channel_id": meta.get("channel_id") or "", "duration": meta.get("duration"),
         "url": meta.get("url") or f"https://www.youtube.com/watch?v={vid}",
         "thumb_url": meta.get("thumb_url") or "", "keywords": json.dumps(kws),
-        "is_short": 1 if meta.get("is_short") else 0,
+        "is_short": 1 if meta.get("is_short") else 0, "description": (meta.get("description") or "")[:500],
     }
     if meta.get("media") in ("video", "audio"):
         fields["media"] = meta["media"]
@@ -284,7 +294,7 @@ def delete_video(vid: str, reason: str, by_profile: int | None, library_dir: Pat
 
 def add_event(profile_id: int, etype: str, video: dict | None = None,
               keywords: list[str] | None = None, data: dict | None = None) -> None:
-    weight = EVENT_WEIGHTS.get(etype, 0.0)
+    weight = ALL_WEIGHTS.get(etype, 0.0)
     kws = keywords if keywords is not None else (video or {}).get("keywords", [])
     if isinstance(kws, str):
         kws = json.loads(kws)
@@ -392,6 +402,11 @@ def update_progress(profile_id: int, vid: str, position: float, duration: float 
         add_event(profile_id, "finish", v)
         # Done with it personally; shared items stay until everyone has watched.
         db.x("DELETE FROM queue_items WHERE video_id=? AND scope='personal' AND profile_id=?", (vid, profile_id))
+    elif ended and prev["watched"]:
+        last = db.q1("SELECT MAX(ts) t FROM events WHERE profile_id=? AND video_id=? AND type IN ('finish','rewatch')",
+                     (profile_id, vid))["t"]
+        if not last or now() - last >= REWATCH_GAP:
+            add_event(profile_id, "rewatch", v)
     return get_watch(profile_id, vid)
 
 
@@ -439,10 +454,11 @@ def mark_skip(profile_id: int, vid: str) -> None:
     v = get_video(vid)
     add_event(profile_id, "skip", v)
     if v["is_short"]:
+        last = db.q1("SELECT MAX(id) i FROM events")["i"] or 0
         update_progress(profile_id, vid, 0, v.get("duration"), ended=True)
         # update_progress logged a 'finish'; a skip is not a finish, so undo that.
-        db.x("DELETE FROM events WHERE id=(SELECT MAX(id) FROM events WHERE profile_id=? AND video_id=? "
-             "AND type='finish')", (profile_id, vid))
+        db.x("DELETE FROM events WHERE id>? AND profile_id=? AND video_id=? AND type IN ('finish','rewatch')",
+             (last, profile_id, vid))
 
 
 def rate(profile_id: int, vid: str, value: int) -> dict:
@@ -460,9 +476,48 @@ def rate(profile_id: int, vid: str, value: int) -> dict:
 
 
 def rate_candidate(profile_id: int, meta: dict, value: int) -> None:
-    """Like/dislike something that was never downloaded (e.g. 'Not interested' in For you)."""
+    """Thumbs up/down on something that was never downloaded (a For you card)."""
     upsert_video(meta)
     rate(profile_id, meta["id"], value)
+
+
+def feedback(profile_id: int, vid: str, value: str | None) -> dict:
+    """"More like this" / "Less like this" (value 'more' | 'less' | None to clear)."""
+    if value not in ("more", "less", None):
+        raise ValueError("value must be 'more', 'less' or null")
+    v = get_video(vid)
+    db.x("DELETE FROM events WHERE profile_id=? AND video_id=? AND type IN ('more','less')", (profile_id, vid))
+    if value:
+        add_event(profile_id, value, v)
+    return {"video_id": vid, "feedback": value}
+
+
+def get_feedback(profile_id: int, vid: str) -> str | None:
+    r = db.q1("SELECT type FROM events WHERE profile_id=? AND video_id=? AND type IN ('more','less') "
+              "ORDER BY id DESC LIMIT 1", (profile_id, vid))
+    return r["type"] if r else None
+
+
+def not_interested(profile_id: int, meta: dict) -> None:
+    """"Not interested" on a feed card: hide it for good and learn from it."""
+    v = upsert_video(meta)
+    db.x("INSERT INTO watch_state(profile_id, video_id, position, watched, rating, updated_at) "
+         "VALUES(?,?,0,0,-1,?) ON CONFLICT(profile_id, video_id) DO UPDATE SET rating=-1", (profile_id, v["id"], now()))
+    db.x("DELETE FROM events WHERE profile_id=? AND video_id=? AND type IN ('like','dislike','not_interested')",
+         (profile_id, v["id"]))
+    add_event(profile_id, "not_interested", v)
+
+
+def undo_not_interested(profile_id: int, vid: str) -> None:
+    db.x("DELETE FROM events WHERE profile_id=? AND video_id=? AND type='not_interested'", (profile_id, vid))
+    db.x("UPDATE watch_state SET rating=0 WHERE profile_id=? AND video_id=? AND rating<0", (profile_id, vid))
+
+
+def not_interested_list(profile_id: int) -> list[dict]:
+    rows = db.q("SELECT e.video_id, e.ts, e.channel, e.data FROM events e WHERE e.profile_id=? "
+                "AND e.type='not_interested' ORDER BY e.ts DESC", (profile_id,))
+    return [{"video_id": r["video_id"], "title": json.loads(r["data"]).get("title", ""), "channel": r["channel"],
+             "ts": r["ts"], "thumb": f"/api/thumb/{r['video_id']}"} for r in rows]
 
 
 # ---- delete after watching ----------------------------------------------------

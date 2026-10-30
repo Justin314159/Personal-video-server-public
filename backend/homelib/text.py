@@ -39,3 +39,22 @@ def keywords(*texts: str, limit: int = MAX_KEYWORDS) -> list[str]:
             if len(out) >= limit:
                 return out
     return out
+
+
+# Words that are common in video titles but say nothing about the topic. The
+# interest labels, the interest searches and the built-in embedder skip them.
+GENERIC = set(
+    """
+explained explain explains explaining explainer truth everything nobody tells told beginner beginners
+guide guides tutorial tutorials tips tricks ultimate complete deep dive intro introduction basics basic
+learn learning lesson lessons course easy easiest simple simply quick quickly minute minutes hour hours week
+weeks year years matter matters really actually thing things way ways why what how ever never always
+inside behind secret secrets amazing incredible insane crazy best worst top new old full part episode
+review reviews reaction vlog story stories look looking trying tried try test tested first last
+""".split()
+)
+
+
+def topic_words(*texts: str, limit: int = MAX_KEYWORDS) -> list[str]:
+    """keywords() without the generic title words."""
+    return [w for w in keywords(*texts, limit=limit * 2) if w not in GENERIC][:limit]

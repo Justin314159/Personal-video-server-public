@@ -77,6 +77,22 @@ const http = {
   foryou: (mode) => call('GET', `/api/foryou?mode=${mode}`),
   why: (id, mode) => call('GET', `/api/foryou/why/${enc(id)}?mode=${mode}`),
   refreshForyou: (mode = 'me') => call('POST', `/api/foryou/refresh?mode=${mode}`),
+  refreshStatus: () => call('GET', '/api/foryou/status'),
+  feedback: (id, value) => call('POST', `/api/videos/${enc(id)}/feedback`, { value }),
+  notInterested: (video) => call('POST', '/api/candidates/not-interested', { video: pick(video, true) }),
+  undoNotInterested: (id) => call('DELETE', `/api/not-interested/${enc(id)}`),
+  interests: () => call('GET', '/api/interests'),
+  addInterest: (label, weight) => call('POST', '/api/interests', { label, weight }),
+  updateInterest: (id, patch) => call('PATCH', `/api/interests/${id}`, patch),
+  deleteInterest: (id) => call('DELETE', `/api/interests/${id}`),
+  restoreInterest: (id) => call('POST', `/api/interests/${id}/restore`),
+  blockInterest: (id) => call('POST', `/api/interests/${id}/block`),
+  subscriptions: () => call('GET', '/api/subscriptions'),
+  subscriptionsNew: () => call('GET', '/api/subscriptions/new-count'),
+  subscribe: (channelId, channel, videoId) => call('POST', '/api/subscriptions', { channel_id: channelId || null, channel, video_id: videoId || null }),
+  unsubscribe: (channelId) => call('DELETE', `/api/subscriptions/${enc(channelId)}`),
+  markUploadsSeen: (ids) => call('POST', '/api/subscriptions/seen', { ids }),
+  channel: (channelId, name = '') => call('GET', `/api/channels/${enc(channelId)}?name=${enc(name)}`),
   shorts: () => call('GET', '/api/shorts'),
   shortSeen: (id, seconds, duration) => call('POST', `/api/shorts/${enc(id)}/seen`, { seconds, duration }),
   prefetchShorts: () => call('POST', '/api/shorts/prefetch'),
@@ -122,7 +138,7 @@ const http = {
 // Only send the metadata fields the server accepts.
 function pick(v, keepKeywords = false) {
   const out = {};
-  for (const k of ['id', 'url', 'title', 'channel', 'channel_id', 'duration', 'thumb_url', 'is_short']) {
+  for (const k of ['id', 'url', 'title', 'channel', 'channel_id', 'duration', 'thumb_url', 'is_short', 'description']) {
     if (v[k] !== undefined && v[k] !== null) out[k] = v[k];
   }
   if (keepKeywords && v.keywords) out.keywords = v.keywords;

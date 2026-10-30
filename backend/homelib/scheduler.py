@@ -1,4 +1,5 @@
-"""Background jobs: auto-delete, Shorts prefetch, nightly candidate fetch."""
+"""Background jobs: auto-delete, Shorts prefetch, the early-morning refresh
+(subscriptions + For you candidates)."""
 from __future__ import annotations
 
 import datetime as dt
@@ -62,10 +63,10 @@ def prefetch_shorts(cfg, yt, dm) -> int:
 
 
 def nightly(cfg, yt) -> None:
-    recommender.nightly_reload(yt)
-    for pid in library.profile_ids():
-        recommender.rank(pid, "me")
-    recommender.rank(library.profile_ids()[0], "both")
+    """The early-morning refresh: subscriptions, interests, candidates, ranking
+    (recommender.refresh, run in its own background thread)."""
+    res = recommender.nightly_reload(yt)
+    log.info("nightly refresh: %s", res)
     db.set_setting("global", "last_nightly", now())
 
 

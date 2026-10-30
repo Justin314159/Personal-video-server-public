@@ -150,8 +150,12 @@ BY_ID = {v["id"]: v for v in CATALOG + SONG_CATALOG}
 
 
 def public(v: dict) -> dict:
-    return {k: v[k] for k in ("id", "title", "channel", "channel_id", "duration", "url",
-                              "thumb_url", "is_short", "view_count")}
+    out = {k: v[k] for k in ("id", "title", "channel", "channel_id", "duration", "url",
+                             "thumb_url", "is_short", "view_count")}
+    out["description"] = f"{v['title']}. A video by {v['channel']}."
+    # Stable fake upload dates between a week and ~10 years ago.
+    out["upload_ts"] = 1_790_000_000 - random.Random(v["id"]).randint(7, 3650) * 86400
+    return out
 
 
 def search(query: str, n: int = 12, shorts_only: bool = False) -> list[dict]:
@@ -170,6 +174,16 @@ def search(query: str, n: int = 12, shorts_only: bool = False) -> list[dict]:
         random.Random(query).shuffle(rest)
         hits += rest
     return [public(v) for v in hits[:n]]
+
+
+def channel_uploads(channel_id: str, n: int = 15, channel: str = "") -> list[dict]:
+    """A channel's "latest uploads": its catalog videos, one every two days."""
+    vids = [v for v in CATALOG if v["channel_id"] == channel_id and not v["is_short"]]
+    t = time.time()
+    out = []
+    for i, v in enumerate(vids[:n]):
+        out.append({**public(v), "upload_ts": t - (i * 2 + 0.5) * 86400})
+    return out
 
 
 def search_music(query: str, n: int = 15) -> list[dict]:
