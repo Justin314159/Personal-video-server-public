@@ -5,7 +5,9 @@ Two interchangeable models (`[recommender] embedding_model`):
 * "minilm": all-MiniLM-L6-v2 through fastembed (ONNX Runtime, CPU, no PyTorch).
   About 150-250 MB of RAM once loaded and a few ms per title. fastembed isn't
   in the USB package (ONNX Runtime adds ~85 MB per Python version), so it's an
-  add-on: `sudo bash /opt/homelib/install_embeddings.sh` (see updates/1.5.0.md).
+  add-on: `sudo bash /opt/homelib/install_embeddings.sh` (see updates/1.5.0.md),
+  which installs hash-pinned packages and downloads the model once; the app
+  then only ever loads it from disk.
 * "builtin": a dependency-free hashing embedder. Words, word pairs, word
   pieces, the channel and the topic lexicon (topics.py) are hashed into 512
   dimensions. Not as smart as MiniLM, but it groups "black hole" with "Mars
@@ -156,9 +158,13 @@ def _load_minilm() -> bool:
         if not fastembed_installed() or (_minilm_failed_at and time.time() - _minilm_failed_at < RETRY_FAILED):
             return False
         try:
+            # Offline only: the model was downloaded once by install_embeddings.sh;
+            # the app never contacts Hugging Face (no update checks, no telemetry).
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
             from fastembed import TextEmbedding
 
-            kw = {"threads": _cfg["threads"]}
+            kw = {"threads": _cfg["threads"], "local_files_only": True}
             if _cfg["cache_dir"]:
                 kw["cache_dir"] = str(_cfg["cache_dir"])
             _minilm = TextEmbedding(MINILM_HF, **kw)
@@ -166,7 +172,8 @@ def _load_minilm() -> bool:
             return True
         except Exception as e:
             _minilm_failed_at = time.time()
-            log.warning("MiniLM unavailable, using the built-in embedder: %s", e)
+            log.warning("MiniLM unavailable (run: sudo bash /opt/homelib/install_embeddings.sh), "
+                        "using the built-in embedder: %s", e)
             return False
 
 

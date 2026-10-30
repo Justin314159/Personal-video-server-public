@@ -78,6 +78,7 @@ find "$STAGE/app" -name __pycache__ -type d -prune -exec rm -rf {} +
 cp "$ROOT"/packaging/{install.sh,update.sh,uninstall.sh,backup.sh,selfcheck.sh,install_embeddings.sh,run.sh,lib.sh,config.example.toml,PROMPT.md} "$STAGE/"
 cp "$ROOT"/docs/*.md "$STAGE/docs/"
 mkdir -p "$STAGE/updates" && cp "$ROOT"/updates/*.md "$STAGE/updates/"
+mkdir -p "$STAGE/embeddings-pins" && cp "$ROOT"/packaging/pins/embeddings-cp*.txt "$STAGE/embeddings-pins/"
 echo "$VERSION" > "$STAGE/VERSION"
 chmod 755 "$STAGE"/*.sh
 

@@ -109,6 +109,9 @@ install_app() {
   [ -d "$PREFIX/app" ] && mv "$PREFIX/app" "$PREFIX/app.old"
   mv "$PREFIX/app.new" "$PREFIX/app"
   cp "$PKG_DIR"/{update.sh,uninstall.sh,backup.sh,selfcheck.sh,install_embeddings.sh,lib.sh,VERSION} "$PREFIX/" 2>/dev/null || true
+  if [ -d "$PKG_DIR/embeddings-pins" ]; then  # for install_embeddings.sh (1.5.0+)
+    rm -rf "$PREFIX/embeddings-pins" && cp -r "$PKG_DIR/embeddings-pins" "$PREFIX/"
+  fi
   chmod 755 "$PREFIX"/*.sh
 }
 

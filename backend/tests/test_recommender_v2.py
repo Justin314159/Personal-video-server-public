@@ -514,3 +514,39 @@ def test_reload_runs_in_the_background(client, monkeypatch):
         time.sleep(0.05)
     assert not client.get("/api/foryou/status").json()["running"]
     assert client.get("/api/foryou", headers=P1).json()["items"]
+
+
+def test_minilm_loads_from_disk_only(monkeypatch, tmp_path):
+    """The app never downloads the model or contacts Hugging Face (install_embeddings.sh does that once)."""
+    import sys
+    import types
+
+    seen = {}
+
+    class FakeTE:
+        def __init__(self, name, **kw):
+            seen.update(kw, name=name, offline=__import__("os").environ.get("HF_HUB_OFFLINE"))
+
+    monkeypatch.setitem(sys.modules, "fastembed", types.SimpleNamespace(TextEmbedding=FakeTE))
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    embeddings.configure("minilm", tmp_path, 1)
+    monkeypatch.setattr(embeddings, "_fastembed_ok", True)
+    assert embeddings._load_minilm()
+    assert seen["local_files_only"] is True and seen["offline"] == "1" and seen["cache_dir"] == str(tmp_path)
+    assert seen["name"] == embeddings.MINILM_HF and seen["threads"] == 1
+    embeddings.configure("builtin")
+
+
+def test_embedding_pins_are_hash_locked():
+    from pathlib import Path
+
+    pins = Path(__file__).resolve().parents[2] / "packaging" / "pins"
+    for tag in ("310", "311", "312", "313", "314"):
+        lines = (pins / f"embeddings-cp{tag}.txt").read_text().splitlines()
+        reqs = [l for l in lines if "==" in l]
+        assert any(l.startswith("fastembed==") for l in reqs)
+        base = {l.split("==")[0] for l in (pins / f"constraints-cp{tag}.txt").read_text().split()}
+        for i, l in enumerate(lines):
+            if "==" in l:
+                assert l.split("==")[0] not in base  # never touches the app's own packages
+                assert "--hash=sha256:" in lines[i + 1]
