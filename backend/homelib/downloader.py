@@ -16,7 +16,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import db, library
+from . import db, jellyfin, library
 from .db import now
 from .formats import is_audio
 from .shorts import is_short
@@ -237,6 +237,8 @@ class DownloadManager:
         meta = {"id": vid, "title": res.get("title") or v["title"], "channel": res.get("channel") or v["channel"],
                 "channel_id": res.get("channel_id"), "duration": res.get("duration") or v["duration"],
                 "tags": res.get("tags"), "is_short": short}
+        if not audio:
+            res["file_path"] = str(jellyfin.place(res["file_path"], short, self.cfg.library_dir))
         if res.get("tags"):
             meta["keywords"] = library.video_keywords(meta["title"], res["tags"])
         library.upsert_video(meta)
@@ -256,6 +258,8 @@ class DownloadManager:
                               local_file=res["file_path"], at=(dur or 0) * 0.1)
         except Exception:
             pass
+        if not audio:
+            jellyfin.write_sidecars(vid, self.cfg.thumbs_dir)
         log.info("download %s done: %s", did, v["title"])
 
     def _finish_cancel(self, did: int, vid: str) -> None:

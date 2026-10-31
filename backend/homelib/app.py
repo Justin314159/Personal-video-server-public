@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import __version__, cleaner, db, embeddings, interests, library, recommender, scheduler, subscriptions, subtitles
+from . import __version__, cleaner, db, embeddings, interests, jellyfin, library, recommender, scheduler, subscriptions, subtitles
 from .config import TAILSCALE_NET, Config, load_config
 from .downloader import DownloadManager
 from .streaming import stream_file
@@ -260,6 +260,10 @@ def create_app(cfg: Config | None = None, start_workers: bool = True, start_sche
     db.init(cfg.db_path)
     library.ensure_profiles(cfg.profile_names)
     recommender.configure(cfg)
+    try:
+        jellyfin.sync(cfg.library_dir, cfg.thumbs_dir)
+    except Exception as e:  # only extras for Jellyfin: never stop the app over them
+        log.warning("Jellyfin files not synced: %s", e)
 
     ffmpeg, ff_src = find_ffmpeg(cfg.ffmpeg_path)
     ff_dir = make_low_priority_wrappers(cfg.data_dir / "bin", ffmpeg, cfg.ffmpeg_nice) if ffmpeg else None
