@@ -8,7 +8,7 @@ import re
 import shutil
 from pathlib import Path
 
-from . import db, subtitles, text
+from . import db, jellyfin, subtitles, text
 from .db import now
 
 log = logging.getLogger("homelib.library")
@@ -130,7 +130,7 @@ def remove_avatar(pid: int, avatars_dir: Path) -> dict:
 def disk_status(library_dir: Path, min_free_gb: float) -> dict:
     library_dir.mkdir(parents=True, exist_ok=True)
     u = shutil.disk_usage(library_dir)
-    used_by_lib = sum(f.stat().st_size for f in library_dir.glob("*.mp4") if f.is_file())
+    used_by_lib = sum(f.stat().st_size for f in jellyfin.library_mp4s(library_dir))
     return {"total": u.total, "free": u.free, "used": u.used, "library_bytes": used_by_lib,
             "min_free": int(min_free_gb * 1024 ** 3),
             "ok": u.free >= min_free_gb * 1024 ** 3}
@@ -267,6 +267,7 @@ def delete_video(vid: str, reason: str, by_profile: int | None, library_dir: Pat
         if p.is_file():
             freed = p.stat().st_size
             p.unlink()
+        jellyfin.remove_sidecars(p)
     for ext in ("jpg", "svg"):
         (thumbs_dir / f"{vid}.{ext}").unlink(missing_ok=True)
     for sub in db.q("SELECT path FROM subtitles WHERE video_id=?", (vid,)):
