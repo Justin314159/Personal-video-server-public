@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import innertube, mock, subtitles
-from .formats import is_audio, ydl_audio_opts, ydl_format_opts
+from .formats import NO_COMPAT_FORMAT, ios_playable, is_audio, ydl_audio_opts, ydl_format_opts
 from .shorts import is_short
 
 log = logging.getLogger("homelib.ytlib")
@@ -240,7 +240,7 @@ class YouTube:
             except mock.MockStop as s:
                 raise Stopped(s.what) from None
         import yt_dlp
-        from yt_dlp.utils import DownloadCancelled
+        from yt_dlp.utils import DownloadCancelled, DownloadError
 
         class _Stop(DownloadCancelled):
             pass
@@ -300,10 +300,18 @@ class YouTube:
             info = self._extract(url, opts, download=True)
         except DownloadCancelled:
             raise Stopped(state.get("stop", "cancel")) from None
+        except DownloadError as e:
+            if "Requested format is not available" in str(e):
+                raise RuntimeError(NO_COMPAT_FORMAT) from None
+            raise
         rd = (info.get("requested_downloads") or [{}])[0]
         path = rd.get("filepath") or rd.get("_filename")
         if not path or not Path(path).is_file():
             raise RuntimeError("yt-dlp finished but the output file is missing")
+        if not is_audio(quality) and not ios_playable(info.get("vcodec"), info.get("acodec")):
+            # The format strings shouldn't let this happen; never keep a file the phones can't play.
+            Path(path).unlink(missing_ok=True)
+            raise RuntimeError(f"{NO_COMPAT_FORMAT} (got {info.get('vcodec')} + {info.get('acodec')})")
         subs = [] if is_audio(quality) or short else self._fetch_tracks(info)
         return {
             "subtitles": subs,

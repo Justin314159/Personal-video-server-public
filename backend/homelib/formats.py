@@ -1,18 +1,29 @@
 """yt-dlp format strings and download option building.
 
-The two format strings are carried over from the original CLI prototype.
+Every video download is H.264 (avc1) video + AAC (m4a) audio merged into an
+mp4, which every iPhone plays natively (video and audio-only mode). There is
+deliberately no catch-all "/b" at the end: before 1.6.1 that fallback, and the
+old "best" string ("bv*+ba/b"), could store VP9/AV1 video or Opus audio, which
+iOS Safari won't play. If YouTube offers no H.264 + AAC version, the download
+fails with a clear message instead of storing a file that won't play.
 """
 from __future__ import annotations
 
-# Best available streams (up to 4K, VP9/AV1 common), merged into an mp4.
-FORMAT_BEST = "bv*+ba/b"
-# H.264 video <=1080p + AAC audio, which iOS Safari plays natively.
-FORMAT_COMPAT = "bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b"
+# H.264 video + AAC audio, merged into mp4. `[x^=?y]` (with the ?) also accepts
+# a format whose codec isn't reported; YouTube always reports it, so that only
+# matters for the plain-mp4 last resort (and for direct-file URLs in tests).
+_IOS_TAIL = "b[vcodec^=avc1][acodec^=mp4a]{cap}/b[ext=mp4][vcodec^=?avc1][acodec^=?mp4a]{cap}"
+# Highest H.264 YouTube has (in practice 1080p; it doesn't offer H.264 above that).
+FORMAT_BEST = "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/" + _IOS_TAIL.format(cap="")
+# H.264 video <=1080p + AAC audio.
+FORMAT_COMPAT = "bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/" + _IOS_TAIL.format(cap="[height<=?1080]")
 
 QUALITIES = {"best": FORMAT_BEST, "compat": FORMAT_COMPAT}
 
 # Codecs iOS Safari plays natively in an mp4 container (prefixes as yt-dlp reports them).
 SAFARI_VCODECS = ("avc1", "h264", "hvc1", "hev1", "hevc")
+SAFARI_ACODECS = ("mp4a", "aac")
+NO_COMPAT_FORMAT = "YouTube offers no iPhone-compatible (H.264 + AAC) version of this video"
 
 
 # Music downloads: best audio stream, converted to mp3 (plays everywhere) or
@@ -66,8 +77,17 @@ def ydl_format_opts(quality: str, is_short: bool = False) -> dict:
     }
 
 
-def needs_vlc(vcodec: str | None) -> bool:
-    """True when the video codec probably won't play in iOS Safari (VP9, AV1...)."""
-    if not vcodec or vcodec == "none":
+def needs_vlc(vcodec: str | None, acodec: str | None = None) -> bool:
+    """True when the file probably won't play in iOS Safari (VP9/AV1 video, or
+    Opus sound in a video downloaded before 1.6.1)."""
+    return not ios_playable(vcodec, acodec)
+
+
+def ios_playable(vcodec: str | None, acodec: str | None) -> bool:
+    """False only when a codec is known and isn't one iOS Safari plays.
+    (Unknown codecs pass: yt-dlp can't always tell for direct-file links.)"""
+    v = (vcodec or "").lower()
+    a = (acodec or "").lower()
+    if v and v != "none" and not v.startswith(SAFARI_VCODECS):
         return False
-    return not vcodec.lower().startswith(SAFARI_VCODECS)
+    return not (a and a != "none" and not a.startswith(SAFARI_ACODECS))

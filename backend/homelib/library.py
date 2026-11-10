@@ -757,7 +757,7 @@ def decorate_video(v: dict) -> dict:
     d = db.q1("SELECT id, status, progress, speed, eta, phase, error FROM downloads WHERE video_id=? "
               "ORDER BY id DESC LIMIT 1", (vid,))
     v["download"] = d
-    v["needs_vlc"] = needs_vlc(v.get("vcodec"))
+    v["needs_vlc"] = needs_vlc(v.get("vcodec"), v.get("acodec") if v.get("media") != "audio" else None)
     allp = profile_ids()
     v["for"] = relevant_profiles(vid, allp)
     v["shared"] = set(allp) <= set(v["for"])

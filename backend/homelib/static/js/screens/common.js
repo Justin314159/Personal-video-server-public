@@ -7,7 +7,7 @@ import { state, profileById } from '../state.js';
 
 const QUALITY = [
   ['compat', 'Compatible 1080p', 'H.264 up to 1080p. Plays in Safari on every iPhone.'],
-  ['best', 'Best quality', 'Up to 4K. Some files are VP9/AV1 and may need VLC on the phone.'],
+  ['best', 'Best quality', 'Highest H.264 YouTube offers (usually 1080p). Plays in Safari on every iPhone.'],
 ];
 
 // shared: opened from "Both of us", so it starts on "Share with both of us".

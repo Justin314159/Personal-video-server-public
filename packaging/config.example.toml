@@ -25,7 +25,8 @@ max_concurrent = 2
 # 1 slot for what you ask for, 1 slot for background Shorts prefetch.
 foreground_workers = 1
 background_workers = 1
-# "compat" (H.264 1080p, plays in Safari) or "best" (up to 4K, may need VLC).
+# "compat" (H.264 + AAC up to 1080p) or "best" (highest H.264 + AAC YouTube offers).
+# Both play natively in Safari on every iPhone (since 1.6.1).
 default_quality = "compat"
 # ffmpeg merges run at this nice level (and idle IO priority).
 ffmpeg_nice = 10

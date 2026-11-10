@@ -1024,7 +1024,7 @@ __hl_define("js/screens/common.js", function (__exports, __require) {
 
 const QUALITY = [
   ['compat', 'Compatible 1080p', 'H.264 up to 1080p. Plays in Safari on every iPhone.'],
-  ['best', 'Best quality', 'Up to 4K. Some files are VP9/AV1 and may need VLC on the phone.'],
+  ['best', 'Best quality', 'Highest H.264 YouTube offers (usually 1080p). Plays in Safari on every iPhone.'],
 ];
 
 // shared: opened from "Both of us", so it starts on "Share with both of us".
@@ -1932,7 +1932,7 @@ function dlCard(d, refresh) {
       h('div', { style: { width: '96px', flex: 'none' } }, thumbEl({ ...d, duration: null })),
       h('div.grow',
         h('div.title.clamp2', { style: { fontWeight: 600, fontSize: '0.882rem' } }, d.title),
-        h('div.small.muted', { style: { marginTop: '4px' } }, h(`span.pill${d.quality === 'best' ? '.warn' : ''}`, { best: 'Best', compat: '1080p', mp3: 'MP3', m4a: 'M4A' }[d.quality] || d.quality), ' ', info))),
+        h('div.small.muted', { style: { marginTop: '4px' } }, h('span.pill', { best: 'Best', compat: '1080p', mp3: 'MP3', m4a: 'M4A' }[d.quality] || d.quality), ' ', info))),
     h('div.progress', { style: { marginTop: '10px' } }, h('div', { style: { width: `${pct}%` } })),
     h('div.row', { style: { justifyContent: 'flex-end', marginTop: '8px', gap: '8px' } },
       d.status === 'running' || d.status === 'queued' ? ctl('pause', 'pause', 'Pause') : null,
@@ -2054,7 +2054,7 @@ const settingsScreen = {
     });
 
     const qualityNote = h('div.muted.small', { style: { marginTop: '8px' } });
-    const setQNote = (q) => { qualityNote.textContent = q === 'best' ? 'Up to 4K, stored as-is. Some videos come as VP9/AV1, which may need VLC on the phone.' : 'H.264 up to 1080p. Plays natively in Safari on every iPhone.'; };
+    const setQNote = (q) => { qualityNote.textContent = q === 'best' ? 'Highest H.264 YouTube offers (usually 1080p), with AAC sound. Plays natively in Safari on every iPhone.' : 'H.264 up to 1080p. Plays natively in Safari on every iPhone.'; };
     setQNote(settings.default_quality);
 
     root.append(screen(
@@ -2795,7 +2795,7 @@ function buildPlayer(root, first, listId) {
     put(infoBox, 
       h('div', h('h1.video-title', v.title),
         h('div.muted.small.meta', channelLink(v), [fmtDuration(v.duration), v.quality === 'best' ? 'Best quality' : 'Compatible 1080p'].filter(Boolean).map((x) => ` · ${x}`))),
-      v.needs_vlc ? h('div.banner', { style: { marginTop: '12px' } }, icon('warn'), h('div.grow', h('div', `Encoded as ${(v.vcodec || '').split('.')[0].toUpperCase()}. If Safari won’t play it, use VLC.`),
+      v.needs_vlc ? h('div.banner', { style: { marginTop: '12px' } }, icon('warn'), h('div.grow', h('div', `Encoded as ${[v.vcodec, v.acodec].filter((c) => c && c !== 'none').map((c) => c.split('.')[0].toUpperCase()).join(' + ')}. If Safari won’t play it, use VLC, or delete it and download it again.`),
         h('a.btn', { href: vlcUrl(), style: { marginTop: '8px' } }, 'Open in VLC'))) : null);
   }
 
