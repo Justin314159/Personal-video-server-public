@@ -9,6 +9,7 @@ something works differently, the update page wins.
 
 | Version | Small update package works? | Highlights |
 |---|---|---|
+| [1.6.1](1.6.1.md) | Yes, from 1.6.0, 1.5.0, 1.4.0 or 1.3.0 | Videos always download as H.264 + AAC mp4, so they play on the iPhone again (video and audio-only); "Best quality" no longer stores VP9/AV1 |
 | [1.6.0](1.6.0.md) | Yes, from 1.5.0, 1.4.0 or 1.3.0 | Videos show up in Jellyfin with their real titles and pictures, Shorts kept out of it (own `shorts/` folder) |
 | [1.5.0](1.5.0.md) | Yes, from 1.4.0 or 1.3.0 | New For you: interests with capped weights, exploration slider, thumbs / more-less / not interested, interest editor; channel subscriptions (Subs tab); optional MiniLM model |
 | [1.4.0](1.4.0.md) | Yes, from 1.3.0 | Private downloads + "Share with both of us", For you reload button, copy transcript, profile photos, small update packages |

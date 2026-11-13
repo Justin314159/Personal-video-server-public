@@ -655,7 +655,7 @@ function buildPlayer(root, first, listId) {
     put(infoBox, 
       h('div', h('h1.video-title', v.title),
         h('div.muted.small.meta', channelLink(v), [fmtDuration(v.duration), v.quality === 'best' ? 'Best quality' : 'Compatible 1080p'].filter(Boolean).map((x) => ` · ${x}`))),
-      v.needs_vlc ? h('div.banner', { style: { marginTop: '12px' } }, icon('warn'), h('div.grow', h('div', `Encoded as ${(v.vcodec || '').split('.')[0].toUpperCase()}. If Safari won’t play it, use VLC.`),
+      v.needs_vlc ? h('div.banner', { style: { marginTop: '12px' } }, icon('warn'), h('div.grow', h('div', `Encoded as ${[v.vcodec, v.acodec].filter((c) => c && c !== 'none').map((c) => c.split('.')[0].toUpperCase()).join(' + ')}. If Safari won’t play it, use VLC, or delete it and download it again.`),
         h('a.btn', { href: vlcUrl(), style: { marginTop: '8px' } }, 'Open in VLC'))) : null);
   }
 

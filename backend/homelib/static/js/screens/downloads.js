@@ -80,7 +80,7 @@ function dlCard(d, refresh) {
       h('div', { style: { width: '96px', flex: 'none' } }, thumbEl({ ...d, duration: null })),
       h('div.grow',
         h('div.title.clamp2', { style: { fontWeight: 600, fontSize: '0.882rem' } }, d.title),
-        h('div.small.muted', { style: { marginTop: '4px' } }, h(`span.pill${d.quality === 'best' ? '.warn' : ''}`, { best: 'Best', compat: '1080p', mp3: 'MP3', m4a: 'M4A' }[d.quality] || d.quality), ' ', info))),
+        h('div.small.muted', { style: { marginTop: '4px' } }, h('span.pill', { best: 'Best', compat: '1080p', mp3: 'MP3', m4a: 'M4A' }[d.quality] || d.quality), ' ', info))),
     h('div.progress', { style: { marginTop: '10px' } }, h('div', { style: { width: `${pct}%` } })),
     h('div.row', { style: { justifyContent: 'flex-end', marginTop: '8px', gap: '8px' } },
       d.status === 'running' || d.status === 'queued' ? ctl('pause', 'pause', 'Pause') : null,

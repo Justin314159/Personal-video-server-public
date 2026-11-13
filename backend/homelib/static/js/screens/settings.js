@@ -77,7 +77,7 @@ export const settingsScreen = {
     });
 
     const qualityNote = h('div.muted.small', { style: { marginTop: '8px' } });
-    const setQNote = (q) => { qualityNote.textContent = q === 'best' ? 'Up to 4K, stored as-is. Some videos come as VP9/AV1, which may need VLC on the phone.' : 'H.264 up to 1080p. Plays natively in Safari on every iPhone.'; };
+    const setQNote = (q) => { qualityNote.textContent = q === 'best' ? 'Highest H.264 YouTube offers (usually 1080p), with AAC sound. Plays natively in Safari on every iPhone.' : 'H.264 up to 1080p. Plays natively in Safari on every iPhone.'; };
     setQNote(settings.default_quality);
 
     root.append(screen(
